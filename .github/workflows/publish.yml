@@ -26,6 +26,9 @@ jobs:
     permissions:
       contents: read
       id-token: write  # required for npm provenance
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      dist_tag: ${{ steps.tag.outputs.dist_tag }}
 
     steps:
       - name: Checkout
@@ -43,6 +46,13 @@ jobs:
 
       - name: Build all packages
         run: npm run build
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Package version: $VERSION"
 
       - name: Determine dist-tag
         id: tag
@@ -111,3 +121,100 @@ jobs:
             --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  smoke-test:
+    name: Smoke-test published packages
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Wait for registry propagation
+        # Give the npm registry up to ~2 minutes to make the new packages
+        # visible. Check both @oda-agent/core and @oda-agent/openclaw-plugin
+        # so the install step doesn't race against a partially-propagated core.
+        # Retry up to 6 times with 20-second pauses.
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          echo "Waiting for @oda-agent/core@$VERSION and @oda-agent/openclaw-plugin@$VERSION to appear on npm..."
+          for attempt in 1 2 3 4 5 6; do
+            if npm view "@oda-agent/core@$VERSION" version \
+                --registry https://registry.npmjs.org 2>/dev/null \
+              && npm view "@oda-agent/openclaw-plugin@$VERSION" version \
+                --registry https://registry.npmjs.org 2>/dev/null; then
+              echo "Packages are available (attempt $attempt)"
+              exit 0
+            fi
+            echo "Attempt $attempt: packages not yet fully available — waiting 20 s"
+            sleep 20
+          done
+          echo "ERROR: @oda-agent/core@$VERSION and/or @oda-agent/openclaw-plugin@$VERSION were not found on npm after 2 minutes" >&2
+          exit 1
+
+      - name: Install and smoke-test @oda-agent/openclaw-plugin (pinned core)
+        # Create a minimal standalone project that pins BOTH packages to the
+        # published version. This confirms the tarballs are importable as real
+        # npm dependencies (no workspace '*' resolution).
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          SMOKE_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SMOKE_DIR"' EXIT
+
+          echo "Smoke dir: $SMOKE_DIR"
+
+          cat > "$SMOKE_DIR/package.json" <<EOF
+          {
+            "name": "smoke-test-pinned",
+            "version": "0.0.1",
+            "private": true,
+            "dependencies": {
+              "@oda-agent/core": "$VERSION",
+              "@oda-agent/openclaw-plugin": "$VERSION"
+            }
+          }
+          EOF
+
+          cp scripts/verify-imports.cjs "$SMOKE_DIR/"
+
+          cd "$SMOKE_DIR"
+          npm install --prefer-online --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org
+          node verify-imports.cjs
+
+      - name: Install and smoke-test @oda-agent/openclaw-plugin (unpinned core)
+        # Install only the plugin without pinning core — this mirrors what a
+        # real consumer does. The plugin declares "@oda-agent/core": "*" so npm
+        # will resolve whichever core version is available on the registry.
+        # This validates that the '*' dependency range works end-to-end.
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          SMOKE_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SMOKE_DIR"' EXIT
+
+          echo "Smoke dir: $SMOKE_DIR"
+
+          cat > "$SMOKE_DIR/package.json" <<EOF
+          {
+            "name": "smoke-test-unpinned",
+            "version": "0.0.1",
+            "private": true,
+            "dependencies": {
+              "@oda-agent/openclaw-plugin": "$VERSION"
+            }
+          }
+          EOF
+
+          cp scripts/verify-imports.cjs "$SMOKE_DIR/"
+
+          cd "$SMOKE_DIR"
+          npm install --prefer-online --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org
+          node verify-imports.cjs
