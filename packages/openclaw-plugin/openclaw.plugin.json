@@ -1,7 +1,7 @@
 {
   "id": "@oda-agent/openclaw-plugin",
   "name": "oda-shopping-assistant",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Oda grocery shopping assistant — safe cart planning, order history analysis, and delivery slot discovery.",
   "author": "oda-agent-kit",
   "license": "MIT",
@@ -10,14 +10,14 @@
     "properties": {
       "email": {
         "type": "string",
-        "description": "Your Oda.no account email address"
+        "description": "Your Oda.no account email address. Falls back to the ODA_EMAIL environment variable if omitted."
       },
       "password": {
         "type": "string",
-        "description": "Your Oda.no account password"
+        "description": "Your Oda.no account password. Falls back to the ODA_PASSWORD environment variable if omitted."
       }
     },
-    "required": ["email", "password"]
+    "required": []
   },
   "toolGroups": [
     {
