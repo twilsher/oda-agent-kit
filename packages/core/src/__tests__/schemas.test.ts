@@ -7,17 +7,21 @@ import {
   OdaProductListSummaryPageSchema,
   OdaRawCartSchema,
   OdaSearchResponseSchema,
+  OdaSlotPickerDeliverySlotsSchema,
   OdaShoppingListSchema,
 } from '../schemas';
 import { OdaOrderSchema } from '../schemas';
 import cartFixture from './fixtures/cart.json';
+import cartFlatItemsFixture from './fixtures/cart-flat-items.json';
 import cartWithFeesFixture from './fixtures/cart-with-fees.json';
 import deliverySlotsFixture from './fixtures/delivery-slots.json';
 import ordersPageFixture from './fixtures/orders-page.json';
 import productListDetailFixture from './fixtures/product-list-detail.json';
 import productListsPageFixture from './fixtures/product-lists-page.json';
+import searchMixedResponseFixture from './fixtures/search-mixed-response.json';
 import searchResponseFixture from './fixtures/search-response.json';
 import shoppingListsFixture from './fixtures/shopping-lists.json';
+import slotPickerSlotsFixture from './fixtures/slot-picker-slots.json';
 
 describe('core schemas', () => {
   it('parses search fixtures', () => {
@@ -25,6 +29,42 @@ describe('core schemas', () => {
 
     expect(parsed.query).toBe('oat milk');
     expect(parsed.results[0]?.full_name).toBe('Oatly Oat Drink 1L');
+  });
+
+  it('normalizes live mixed search responses into product search results', () => {
+    const parsed = OdaSearchResponseSchema.parse(searchMixedResponseFixture);
+
+    expect(parsed).toEqual({
+      query: 'kylling',
+      count: 2,
+      results: [
+        expect.objectContaining({
+          id: 66895,
+          full_name: 'Ytteroy Chicken Breast',
+          front_url: '/no/products/66895-y-chicken-breast/',
+          is_available: true,
+          is_sponsored: false,
+          promoted_product: false,
+          images: [
+            {
+              thumbnail: { url: 'https://images.oda.com/local_products/chicken-thumb.jpg' },
+              small_thumbnail: { url: 'https://images.oda.com/local_products/chicken-thumb.jpg' },
+              large_thumbnail: { url: 'https://images.oda.com/local_products/chicken-large.jpg' },
+            },
+          ],
+        }),
+        expect.objectContaining({
+          id: 66896,
+          is_available: false,
+          is_sponsored: true,
+          promoted_product: true,
+          availability: {
+            is_available: false,
+            description: 'Sold out',
+          },
+        }),
+      ],
+    });
   });
 
   it('parses cart fixtures and normalises groups into items', () => {
@@ -45,6 +85,35 @@ describe('core schemas', () => {
     expect(parsed.fee_lines).toEqual([]);
     expect(parsed.total_price).toBe('39.80');
     expect(parsed.currency).toBe('NOK');
+  });
+
+  it('normalises flat cart item responses when Oda omits groups', () => {
+    const raw = OdaRawCartSchema.parse(cartFlatItemsFixture);
+    const parsed = normalizeCart(raw);
+
+    expect(parsed).toEqual(expect.objectContaining({
+      id: 0,
+      item_count: 1,
+      label: '1 vare',
+      display_price: '29.90',
+      subtotal_price: '29.90',
+      total_price: '29.90',
+      currency: 'NOK',
+    }));
+    expect(parsed.items).toEqual([
+      expect.objectContaining({
+        id: 9001,
+        quantity: 1,
+        line_price: '29.90',
+        unit_price: '29.90',
+        product: expect.objectContaining({
+          id: 12079,
+          full_name: 'Tine Lettmelk 0,5% fett',
+          unit_price_quantity_name: '',
+          currency: 'NOK',
+        }),
+      }),
+    ]);
   });
 
   it('preserves discounted cart subtotal and fee summary lines', () => {
@@ -111,6 +180,29 @@ describe('core schemas', () => {
 
     expect(parsed).toHaveLength(2);
     expect(parsed[0]?.is_available).toBe(true);
+  });
+
+  it('normalises live slot-picker delivery slot payloads', () => {
+    const parsed = OdaSlotPickerDeliverySlotsSchema.parse(slotPickerSlotsFixture);
+
+    expect(parsed).toEqual([
+      {
+        id: 101,
+        start: '2026-05-15T08:00:00+02:00',
+        end: '2026-05-15T10:00:00+02:00',
+        price: '49.00',
+        currency: 'NOK',
+        is_available: true,
+      },
+      {
+        id: 102,
+        start: '2026-05-15T10:00:00+02:00',
+        end: '2026-05-15T12:00:00+02:00',
+        price: '79.00',
+        currency: 'NOK',
+        is_available: false,
+      },
+    ]);
   });
 
   it('parses shopping list fixtures', () => {

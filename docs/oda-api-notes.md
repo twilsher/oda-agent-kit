@@ -9,7 +9,7 @@ Initial notes to investigate:
 - authentication flow
 - session/cookie persistence
 - CSRF handling for mutation requests
-- product search endpoint
+- product search endpoint: current web frontend uses `GET /api/v1/search/mixed/?q=<query>&type=product`, which returns a mixed-search envelope with product rows under `items[].attributes`
 - product image fields
 - current cart endpoint
 - order history endpoint

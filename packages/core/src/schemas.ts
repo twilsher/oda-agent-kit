@@ -125,24 +125,24 @@ export const OdaShoppingListSchema: z.ZodType<OdaShoppingList> = z.object({
   items: z.array(OdaShoppingListItemSchema),
 });
 
-const OdaProductListAvailabilitySchema = z.object({
+const OdaCatalogAvailabilitySchema = z.object({
   is_available: z.boolean(),
   description: z.string().nullable().optional(),
 }).passthrough();
 
-const OdaProductListImageSchema = z.object({
+const OdaCatalogImageSchema = z.object({
   thumbnail: OdaProductImageAssetSchema.optional(),
+  small_thumbnail: OdaProductImageAssetSchema.optional(),
+  large_thumbnail: OdaProductImageAssetSchema.optional(),
   large: OdaProductImageAssetSchema.optional(),
 }).passthrough();
 
-/**
- * Product schema for the product-lists REST endpoint.
- *
- * The real Oda API uses snake_case throughout (e.g. `full_name`, `gross_price`).
- * The transform normalises image variants into the OdaProductImage shape used
- * by the rest of the codebase.
- */
-const OdaProductListProductSchema = z.object({
+const OdaCatalogProductMetadataSchema = z.object({
+  is_sponsor_labeled: z.boolean().nullable().optional(),
+  is_promoted: z.boolean().nullable().optional(),
+}).passthrough().nullish();
+
+const OdaCatalogProductSchema = z.object({
   id: z.number().int(),
   full_name: z.string(),
   brand: z.string().nullable(),
@@ -154,16 +154,13 @@ const OdaProductListProductSchema = z.object({
   unit_price_quantity_abbreviation: z.string(),
   unit_price_quantity_name: z.string(),
   currency: z.string(),
-  availability: OdaProductListAvailabilitySchema,
-  images: z.array(OdaProductListImageSchema),
-  metadata: z.object({
-    is_sponsor_labeled: z.boolean().nullable().optional(),
-    is_promoted: z.boolean().nullable().optional(),
-  }).passthrough().optional(),
-}).passthrough().transform((product) => {
+  availability: OdaCatalogAvailabilitySchema,
+  images: z.array(OdaCatalogImageSchema),
+  metadata: OdaCatalogProductMetadataSchema,
+}).passthrough().transform((product): OdaProduct => {
   const firstImage = product.images[0];
-  const thumbnail = firstImage?.thumbnail ?? firstImage?.large ?? { url: '' };
-  const large = firstImage?.large ?? firstImage?.thumbnail ?? thumbnail;
+  const thumbnail = firstImage?.thumbnail ?? firstImage?.small_thumbnail ?? firstImage?.large ?? firstImage?.large_thumbnail ?? { url: '' };
+  const large = firstImage?.large_thumbnail ?? firstImage?.large ?? firstImage?.thumbnail ?? thumbnail;
 
   return {
     id: product.id,
@@ -193,6 +190,15 @@ const OdaProductListProductSchema = z.object({
     },
   };
 });
+
+/**
+ * Product schema for the product-lists REST endpoint.
+ *
+ * The real Oda API uses snake_case throughout (e.g. `full_name`, `gross_price`).
+ * The transform normalises image variants into the OdaProductImage shape used
+ * by the rest of the codebase.
+ */
+const OdaProductListProductSchema = OdaCatalogProductSchema;
 
 /** Zod schema for normalized product-list overview entries. */
 export const OdaProductListSummarySchema = z.object({
@@ -245,12 +251,71 @@ export const OdaDeliverySlotSchema: z.ZodType<OdaDeliverySlot> = z.object({
   is_available: z.boolean(),
 });
 
+const OdaSlotPickerSlotSchema = z.object({
+  id: z.number().int(),
+  openDatetime: z.string(),
+  closeDatetime: z.string(),
+  price: z.union([z.string(), z.number()]).optional(),
+  isFull: z.boolean().optional(),
+  isUnavailable: z.boolean().optional(),
+}).passthrough().transform((slot): OdaDeliverySlot => ({
+  id: slot.id,
+  start: slot.openDatetime,
+  end: slot.closeDatetime,
+  price: slot.price === undefined ? '0.00' : String(slot.price),
+  currency: 'NOK',
+  is_available: slot.isFull !== true && slot.isUnavailable !== true,
+}));
+
+export const OdaSlotPickerDeliverySlotsSchema: z.ZodType<OdaDeliverySlot[], z.ZodTypeDef, unknown> = z.union([
+  z.array(OdaDeliverySlotSchema),
+  z.object({
+    deliverySlots: z.array(OdaSlotPickerSlotSchema),
+  }).passthrough().transform((response) => response.deliverySlots),
+]);
+
 /** Zod schema for search responses. */
-export const OdaSearchResponseSchema: z.ZodType<OdaSearchResponse> = z.object({
+const OdaLegacySearchResponseSchema: z.ZodType<OdaSearchResponse, z.ZodTypeDef, unknown> = z.object({
   results: z.array(OdaProductSchema),
   count: z.number().int(),
   query: z.string(),
 });
+
+const OdaMixedSearchProductItemSchema = z.object({
+  type: z.literal('product'),
+  attributes: OdaCatalogProductSchema,
+}).passthrough();
+
+const OdaMixedSearchResponseSchema: z.ZodType<OdaSearchResponse, z.ZodTypeDef, unknown> = z.object({
+  attributes: z.object({
+    query_string: z.string(),
+    request_types: z.array(z.object({
+      type: z.string(),
+      count: z.number().int(),
+    }).passthrough()).optional(),
+  }).passthrough(),
+  items: z.array(z.object({
+    type: z.string(),
+  }).passthrough()),
+}).passthrough().transform((response) => {
+  const results = response.items
+    .filter((item): item is z.infer<typeof OdaMixedSearchProductItemSchema> =>
+      OdaMixedSearchProductItemSchema.safeParse(item).success,
+    )
+    .map((item) => OdaMixedSearchProductItemSchema.parse(item).attributes);
+  const productCount = response.attributes.request_types?.find((requestType) => requestType.type === 'product')?.count;
+
+  return {
+    results,
+    count: productCount ?? results.length,
+    query: response.attributes.query_string,
+  };
+});
+
+export const OdaSearchResponseSchema: z.ZodType<OdaSearchResponse, z.ZodTypeDef, unknown> = z.union([
+  OdaLegacySearchResponseSchema,
+  OdaMixedSearchResponseSchema,
+]);
 
 /** Zod schema for login responses. */
 export const OdaLoginResponseSchema = z.object({
@@ -288,12 +353,13 @@ const OdaRawCartProductSchema = z.object({
 /** Raw cart item as returned by the Oda cart API. */
 export const OdaRawCartItemSchema = z.object({
   /** Item-level identifier (called `item_id` in the Oda cart API). */
-  item_id: z.number().int(),
+  item_id: z.number().int().optional(),
+  id: z.number().int().optional(),
   product: OdaRawCartProductSchema,
   quantity: z.number().int(),
   display_price: z.string().optional(),
   /** Line total price string (called `display_price_total` in the Oda cart API). */
-  display_price_total: z.string(),
+  display_price_total: z.string().optional(),
   discounted_display_price_total: z.string().optional(),
   label_text: z.string().nullable().optional(),
 }).passthrough();
@@ -328,7 +394,8 @@ export const OdaRawCartSchema = z.object({
   display_price: z.string().nullable().optional(),
   currency: z.string().optional(),
   summary_lines: z.array(OdaRawCartSummarySectionSchema).optional(),
-  groups: z.array(OdaRawCartGroupSchema),
+  groups: z.array(OdaRawCartGroupSchema).optional(),
+  items: z.array(OdaRawCartItemSchema).optional(),
 }).passthrough();
 
 export type OdaRawCart = z.infer<typeof OdaRawCartSchema>;
@@ -394,10 +461,12 @@ export function normalizeCart(raw: OdaRawCart): OdaCart {
   );
   let subtotalMinorUnits = 0;
 
-  for (const group of raw.groups) {
+  const groups = raw.groups ?? [{ items: raw.items ?? [] }];
+
+  for (const group of groups) {
     for (const item of group.items) {
       const rawProduct = item.product as Record<string, unknown>;
-      const linePrice = item.discounted_display_price_total ?? item.display_price_total;
+      const linePrice = item.discounted_display_price_total ?? item.display_price_total ?? item.display_price ?? '0.00';
 
       const product: OdaProduct = {
         id: item.product.id,
@@ -421,11 +490,11 @@ export function normalizeCart(raw: OdaRawCart): OdaCart {
       };
 
       items.push({
-        id: item.item_id,
+        id: item.item_id ?? item.id ?? item.product.id,
         product,
         quantity: item.quantity,
         line_price: linePrice,
-        original_line_price: item.discounted_display_price_total ? item.display_price_total : null,
+        original_line_price: item.discounted_display_price_total ? item.display_price_total ?? null : null,
         unit_price: item.display_price ?? item.product.gross_price,
         label: item.label_text ?? null,
       });

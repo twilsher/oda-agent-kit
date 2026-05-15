@@ -4,6 +4,8 @@ import { version } from '../version';
 import {
   createOdaMcpServer,
   EMPTY_INPUT_SCHEMA_JSON,
+  MUTATION_TOOL_NAMES,
+  ODA_TOOL_NAMES,
   READ_ONLY_TOOL_NAMES,
   ZERO_ARGUMENT_TOOL_NAMES,
 } from '../server';
@@ -64,6 +66,80 @@ function createMockOdaClient(): Parameters<typeof createOdaMcpServer>[0] {
       currency: 'NOK',
       item_count: 0,
     }),
+    addToCart: jest.fn().mockResolvedValue({
+      id: 10,
+      product: {
+        id: 123,
+        full_name: 'Whole Milk 1L',
+        brand: 'Oda',
+        name: 'Whole Milk',
+        front_url: 'https://example.com/product/123',
+        gross_price: '29.90',
+        gross_unit_price: '29.90',
+        unit_price_quantity_abbreviation: 'l',
+        unit_price_quantity_name: 'liter',
+        currency: 'NOK',
+        is_available: true,
+        is_sponsored: false,
+        promoted_product: false,
+        images: [],
+        discount: null,
+        availability: {
+          is_available: true,
+          description: null,
+        },
+      },
+      quantity: 2,
+      line_price: '59.80',
+      original_line_price: null,
+      unit_price: '29.90',
+      label: null,
+    }),
+    applyShoppingListToCart: jest.fn().mockResolvedValue({
+      id: 1,
+      items: [
+        {
+          id: 10,
+          product: {
+            id: 123,
+            full_name: 'Whole Milk 1L',
+            brand: 'Oda',
+            name: 'Whole Milk',
+            front_url: 'https://example.com/product/123',
+            gross_price: '29.90',
+            gross_unit_price: '29.90',
+            unit_price_quantity_abbreviation: 'l',
+            unit_price_quantity_name: 'liter',
+            currency: 'NOK',
+            is_available: true,
+            is_sponsored: false,
+            promoted_product: false,
+            images: [],
+            discount: null,
+            availability: {
+              is_available: true,
+              description: null,
+            },
+          },
+          quantity: 2,
+          line_price: '59.80',
+          original_line_price: null,
+          unit_price: '29.90',
+          label: null,
+        },
+      ],
+      label: '2 varer',
+      display_price: '59.80',
+      subtotal_price: '59.80',
+      summary_lines: [],
+      fee_lines: [],
+      total_price: '59.80',
+      currency: 'NOK',
+      item_count: 2,
+    }),
+    rawRequest: jest.fn().mockResolvedValue({
+      raw: true,
+    }),
     getOrders: jest.fn().mockResolvedValue({
       count: 0,
       next: null,
@@ -105,7 +181,7 @@ async function connectTestClient(client: Parameters<typeof createOdaMcpServer>[0
 }
 
 describe('createOdaMcpServer', () => {
-  it('registers the expected read-only Oda tools', async () => {
+  it('registers the expected Oda tools with correct safety annotations', async () => {
     const odaClient = createMockOdaClient();
     const { server, mcpClient } = await connectTestClient(odaClient);
 
@@ -113,14 +189,19 @@ describe('createOdaMcpServer', () => {
       const { tools } = await mcpClient.listTools();
       const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
 
-      expect(tools.map((tool) => tool.name).sort()).toEqual([...READ_ONLY_TOOL_NAMES].sort());
-      expect(tools).toHaveLength(READ_ONLY_TOOL_NAMES.length);
-      expect(tools).not.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'add_to_cart' })]));
+      expect(tools.map((tool) => tool.name).sort()).toEqual([...ODA_TOOL_NAMES].sort());
+      expect(tools).toHaveLength(ODA_TOOL_NAMES.length);
 
-      for (const tool of tools) {
+      for (const tool of tools.filter((tool) => (READ_ONLY_TOOL_NAMES as readonly string[]).includes(tool.name))) {
         expect(tool.annotations?.readOnlyHint).toBe(true);
         expect(tool.annotations?.destructiveHint).toBe(false);
         expect(tool.annotations?.idempotentHint).toBe(true);
+      }
+
+      for (const tool of tools.filter((tool) => (MUTATION_TOOL_NAMES as readonly string[]).includes(tool.name))) {
+        expect(tool.annotations?.readOnlyHint).toBe(false);
+        expect(tool.annotations?.destructiveHint).toBe(true);
+        expect(tool.annotations?.idempotentHint).toBe(false);
       }
 
       for (const toolName of ZERO_ARGUMENT_TOOL_NAMES) {
@@ -258,6 +339,152 @@ describe('createOdaMcpServer', () => {
         currency: 'NOK',
         item_count: 1,
       });
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('requires explicit confirmation before mutating Oda state', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_add_to_cart',
+        arguments: { productId: 123, quantity: 2, confirmed: false },
+      });
+
+      expect((result as { isError?: boolean }).isError).toBe(true);
+      expect(getTextResult(result)).toContain('confirmed=true');
+      expect(odaClient.addToCart).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('executes confirmed add-to-cart mutations through the Oda client', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const addResult = await mcpClient.callTool({
+        name: 'oda_add_to_cart',
+        arguments: { productId: 123, quantity: 2, confirmed: true },
+      });
+
+      expect(odaClient.addToCart).toHaveBeenCalledWith(123, 2);
+      expect(JSON.parse(getTextResult(addResult))).toEqual(expect.objectContaining({
+        quantity: 2,
+      }));
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('requires explicit confirmation before adding a shopping list to the cart', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_add_shopping_list_to_cart',
+        arguments: { shopping_list_id: 430128, confirmed: false },
+      });
+
+      expect((result as { isError?: boolean }).isError).toBe(true);
+      expect(getTextResult(result)).toContain('confirmed=true');
+      expect(odaClient.applyShoppingListToCart).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('executes confirmed shopping-list bulk cart mutations through the Oda client', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const addResult = await mcpClient.callTool({
+        name: 'oda_add_shopping_list_to_cart',
+        arguments: { shopping_list_id: 430128, confirmed: true },
+      });
+
+      expect(odaClient.applyShoppingListToCart).toHaveBeenCalledWith(430128);
+      expect(JSON.parse(getTextResult(addResult))).toEqual(expect.objectContaining({
+        id: 1,
+        item_count: 2,
+      }));
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('executes raw GET Oda API requests without confirmation', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_http_request',
+        arguments: {
+          method: 'GET',
+          path: '/cart/',
+          query: { group_by: 'recipes' },
+        },
+      });
+
+      expect(odaClient.rawRequest).toHaveBeenCalledWith('GET', '/cart/', undefined, {
+        group_by: 'recipes',
+      });
+      expect(JSON.parse(getTextResult(result))).toEqual({ raw: true });
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('requires explicit confirmation before raw non-GET Oda API requests', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_http_request',
+        arguments: {
+          method: 'POST',
+          path: '/cart/items/',
+          body: { items: [{ product_id: 123, quantity: 2 }] },
+          confirmed: false,
+        },
+      });
+
+      expect((result as { isError?: boolean }).isError).toBe(true);
+      expect(getTextResult(result)).toContain('confirmed=true');
+      expect(odaClient.rawRequest).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('executes confirmed raw non-GET Oda API requests through the Oda client', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_http_request',
+        arguments: {
+          method: 'PATCH',
+          path: '/product-lists/430128/',
+          body: { title: 'Weekdays' },
+          query: { source: 'mcp' },
+          confirmed: true,
+        },
+      });
+
+      expect(odaClient.rawRequest).toHaveBeenCalledWith('PATCH', '/product-lists/430128/', { title: 'Weekdays' }, {
+        source: 'mcp',
+      });
+      expect(JSON.parse(getTextResult(result))).toEqual({ raw: true });
     } finally {
       await Promise.all([mcpClient.close(), server.close()]);
     }

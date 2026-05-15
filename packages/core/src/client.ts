@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   createOdaPageSchema,
   normalizeCart,
-  OdaDeliverySlotSchema,
+  OdaSlotPickerDeliverySlotsSchema,
   OdaOrderSchema,
   OdaProductListDetailSchema,
   OdaProductListSummaryPageSchema,
@@ -14,15 +14,18 @@ import { buildUrl, DEFAULT_BASE_URL } from './utils.js';
 import type {
   OdaCart,
   OdaCartItem,
+  OdaCartMutationItem,
   OdaClientConfig,
   OdaCredentials,
   OdaDeliverySlot,
   OdaHttpClient,
+  OdaHttpMethod,
   OdaHttpRequest,
   OdaHttpResponse,
   OdaOrder,
   OdaPage,
   OdaProductListSummary,
+  OdaRawQueryValue,
   OdaProduct,
   OdaSearchResponse,
   OdaSessionStore,
@@ -264,7 +267,7 @@ export class OdaClient {
 
   /** Search for products by query string. */
   async searchProducts(query: string): Promise<OdaSearchResponse> {
-    return this.get(`/search/?q=${encodeURIComponent(query)}`, OdaSearchResponseSchema);
+    return this.get(`/search/mixed/?q=${encodeURIComponent(query)}&type=product`, OdaSearchResponseSchema);
   }
 
   /** Get a single product by its ID. */
@@ -274,7 +277,7 @@ export class OdaClient {
 
   /** Retrieve the current cart. */
   async getCart(): Promise<OdaCart> {
-    const raw = await this.get('/cart/', OdaRawCartSchema);
+    const raw = await this.get('/cart/?group-by=recipes', OdaRawCartSchema);
     return normalizeCart(raw);
   }
 
@@ -287,7 +290,7 @@ export class OdaClient {
    */
   async addToCart(productId: number, quantity: number): Promise<OdaCartItem> {
     const raw = await this.post(
-      '/cart/items/',
+      '/cart/items/?group_by=recipes',
       { items: [{ product_id: productId, quantity }] },
       OdaRawCartSchema,
     );
@@ -302,6 +305,16 @@ export class OdaClient {
     return item;
   }
 
+  /** Set a product's cart quantity. Use 0 to remove the product. */
+  async updateCartItemQuantity(productId: number, quantity: number): Promise<OdaCart> {
+    const raw = await this.post(
+      '/cart/items/?group_by=recipes',
+      { items: [{ product_id: productId, quantity }] },
+      OdaRawCartSchema,
+    );
+    return normalizeCart(raw);
+  }
+
   /**
    * Remove a product from the cart by its product ID.
    *
@@ -312,10 +325,20 @@ export class OdaClient {
    */
   async removeFromCart(productId: number): Promise<void> {
     await this.post(
-      '/cart/items/',
+      '/cart/items/?group_by=recipes',
       { items: [{ product_id: productId, quantity: 0 }] },
       OdaRawCartSchema,
     );
+  }
+
+  /** Apply a batch of cart item mutations in one request, preserving per-item metadata. */
+  async bulkUpdateCartItems(items: OdaCartMutationItem[]): Promise<OdaCart> {
+    const raw = await this.post(
+      '/cart/items/?group_by=recipes',
+      { items },
+      OdaRawCartSchema,
+    );
+    return normalizeCart(raw);
   }
 
   /** Clear all items from the cart. */
@@ -357,6 +380,46 @@ export class OdaClient {
     return this.get(`/product-lists/${listId}/`, OdaProductListDetailSchema);
   }
 
+  /** Create a saved shopping list. */
+  async createShoppingList(name: string): Promise<OdaShoppingList> {
+    return this.post('/product-lists/', { title: name }, OdaProductListDetailSchema);
+  }
+
+  /** Rename a saved shopping list. */
+  async renameShoppingList(listId: number, name: string): Promise<OdaShoppingList> {
+    return this.patch(`/product-lists/${listId}/`, { title: name }, OdaProductListDetailSchema);
+  }
+
+  /** Delete a saved shopping list. */
+  async deleteShoppingList(listId: number): Promise<void> {
+    await this.requestNoContent('DELETE', `/product-lists/${listId}/`, undefined, 'Delete shopping list failed');
+  }
+
+  /** Add or update a product quantity in a saved shopping list. Use 0 to remove it. */
+  async updateShoppingListItem(listId: number, productId: number, quantity: number): Promise<OdaShoppingList> {
+    return this.post(
+      `/product-lists/${listId}/items/`,
+      { items: [{ product_id: productId, quantity }] },
+      OdaProductListDetailSchema,
+    );
+  }
+
+  /** Add every item from a saved shopping list to the current cart. */
+  async applyShoppingListToCart(listId: number): Promise<OdaCart> {
+    const list = await this.getProductList(listId);
+    const items = list.items
+      .filter((item) => item.quantity !== 0)
+      .map((item) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+        from_list_id: listId,
+        tracking_list_name: list.name,
+        tracking_location: 'PRODUCT_LIST_DETAIL',
+      }));
+
+    return this.bulkUpdateCartItems(items);
+  }
+
   /** List saved shopping lists. */
   async getShoppingLists(): Promise<OdaShoppingList[]> {
     const lists = await this.getProductLists();
@@ -365,7 +428,63 @@ export class OdaClient {
 
   /** List available delivery slots. */
   async getDeliverySlots(): Promise<OdaDeliverySlot[]> {
-    return this.get('/delivery-slots/', z.array(OdaDeliverySlotSchema));
+    return this.get('/slot-picker/slots/?num-days=3', OdaSlotPickerDeliverySlotsSchema);
+  }
+
+  /**
+   * Select a delivery slot for the current cart.
+   *
+   * This reserves/updates the delivery window only; it does not place an order
+   * and does not touch payment.
+   */
+  async selectDeliverySlot(slotId: number): Promise<OdaDeliverySlot> {
+    await this.requestNoContent(
+      'POST',
+      '/slot-picker/info/',
+      { deliverySlotId: slotId, inModal: false },
+      'Select delivery slot failed',
+    );
+    const slots = await this.getDeliverySlots();
+    const selected = slots.find((slot) => slot.id === slotId);
+    if (!selected) {
+      throw new OdaApiError(
+        500,
+        `POST /slot-picker/info/ succeeded but slot ${slotId} was not found afterwards`,
+      );
+    }
+    return selected;
+  }
+
+  /** Execute a raw Oda API request using the stored session and CSRF credentials. */
+  async rawRequest(
+    method: OdaHttpMethod,
+    path: string,
+    body?: unknown,
+    query?: Record<string, OdaRawQueryValue>,
+  ): Promise<unknown> {
+    const requestPath = this.buildRawRequestPath(path, query);
+    this.assertRawRequestAllowed(method, requestPath);
+
+    const response = await this.httpClient.request({
+      method,
+      path: requestPath,
+      headers: method === 'GET' ? this.readHeaders() : this.mutationHeaders(),
+      body: method === 'GET' || body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw await this.createApiError(requestPath, response, `HTTP ${response.status}`);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
   }
 
   private readHeaders(): Record<string, string> {
@@ -403,6 +522,42 @@ export class OdaClient {
     return headers;
   }
 
+  private buildRawRequestPath(path: string, query?: Record<string, OdaRawQueryValue>): string {
+    if (!path.startsWith('/') || path.startsWith('//') || /^https?:\/\//i.test(path)) {
+      throw new Error('Raw Oda API path must be a relative path starting with "/".');
+    }
+
+    const [pathname, existingQuery = ''] = path.split('?', 2);
+    const params = new URLSearchParams(existingQuery);
+
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value === null || value === undefined) {
+        continue;
+      }
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          params.append(key, String(item));
+        }
+      } else {
+        params.append(key, String(value));
+      }
+    }
+
+    const queryString = params.toString();
+    return queryString ? `${pathname}?${queryString}` : pathname;
+  }
+
+  private assertRawRequestAllowed(method: OdaHttpMethod, path: string): void {
+    if (method === 'GET') {
+      return;
+    }
+
+    if (/^\/(?:checkout|payment(?:s|-methods)?|orders?)(?:\/|\?|$)/i.test(path)) {
+      throw new Error('Raw Oda API mutations for checkout, payment, or submitted orders are out of scope for v0.');
+    }
+  }
+
   private async get<T>(path: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>): Promise<T> {
     const response = await this.httpClient.request({
       method: 'GET',
@@ -420,6 +575,34 @@ export class OdaClient {
       body: JSON.stringify(body),
     });
     return this.parseResponse(path, response, schema);
+  }
+
+  private async patch<T>(path: string, body: unknown, schema: z.ZodType<T, z.ZodTypeDef, unknown>): Promise<T> {
+    const response = await this.httpClient.request({
+      method: 'PATCH',
+      path,
+      headers: this.mutationHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.parseResponse(path, response, schema);
+  }
+
+  private async requestNoContent(
+    method: 'POST' | 'DELETE',
+    path: string,
+    body: unknown,
+    fallbackMessage: string,
+  ): Promise<void> {
+    const response = await this.httpClient.request({
+      method,
+      path,
+      headers: this.mutationHeaders(),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw await this.createApiError(path, response, fallbackMessage);
+    }
   }
 
   private async parseResponse<T>(path: string, response: OdaHttpResponse, schema: z.ZodType<T, z.ZodTypeDef, unknown>): Promise<T> {

@@ -85,6 +85,16 @@ export interface OdaCart {
   item_count: number;
 }
 
+/** A cart mutation row accepted by Oda's bulk cart items endpoint. */
+export interface OdaCartMutationItem {
+  product_id: number;
+  quantity: number;
+  from_list_id?: number;
+  tracking_list_name?: string;
+  tracking_location?: string;
+  product_list_token?: string | null;
+}
+
 /** A single item in a past order. */
 export interface OdaOrderItem {
   product: OdaProduct;
@@ -253,7 +263,10 @@ export interface StapleRule {
 }
 
 /** Supported HTTP methods for the Oda client. */
-export type OdaHttpMethod = 'GET' | 'POST' | 'DELETE';
+export type OdaHttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+
+/** Supported flat query parameter values for raw Oda API requests. */
+export type OdaRawQueryValue = string | number | boolean | null | undefined | Array<string | number | boolean>;
 
 /** Low-level HTTP request used by the Oda client abstraction. */
 export interface OdaHttpRequest {

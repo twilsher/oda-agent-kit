@@ -1,0 +1,112 @@
+{
+  "type": "product",
+  "attributes": {
+    "items": 2,
+    "page": 1,
+    "has_more_items": true,
+    "request_types": [
+      {
+        "count": 12,
+        "type": "mixed",
+        "display_name": "Top results"
+      },
+      {
+        "count": 2,
+        "type": "product",
+        "display_name": "Products"
+      }
+    ],
+    "query_string": "kylling"
+  },
+  "items": [
+    {
+      "id": 66895,
+      "type": "product",
+      "attributes": {
+        "id": 66895,
+        "full_name": "Ytteroy Chicken Breast",
+        "brand": "Ytteroy",
+        "name": "Chicken Breast",
+        "front_url": "https://oda.com/no/products/66895-y-chicken-breast/",
+        "absolute_url": "/no/products/66895-y-chicken-breast/",
+        "gross_price": "122.60",
+        "gross_unit_price": "129.05",
+        "unit_price_quantity_abbreviation": "kg",
+        "unit_price_quantity_name": "kilogram",
+        "currency": "NOK",
+        "discount": null,
+        "availability": {
+          "is_available": true,
+          "description": "",
+          "description_short": "",
+          "code": "available"
+        },
+        "metadata": {
+          "is_sponsor_labeled": null,
+          "source_uuid": null,
+          "is_promoted": null,
+          "placement_id": null
+        },
+        "images": [
+          {
+            "large": {
+              "url": "https://images.oda.com/local_products/chicken-large.jpg"
+            },
+            "thumbnail": {
+              "url": "https://images.oda.com/local_products/chicken-thumb.jpg"
+            },
+            "variant": "main"
+          }
+        ]
+      }
+    },
+    {
+      "id": 42,
+      "type": "recipe",
+      "attributes": {
+        "title": "Chicken Dinner"
+      }
+    },
+    {
+      "id": 66896,
+      "type": "product",
+      "attributes": {
+        "id": 66896,
+        "full_name": "Ytteroy Chicken Thigh",
+        "brand": "Ytteroy",
+        "name": "Chicken Thigh",
+        "front_url": "https://oda.com/no/products/66896-y-chicken-thigh/",
+        "absolute_url": "/no/products/66896-y-chicken-thigh/",
+        "gross_price": "125.40",
+        "gross_unit_price": "209.00",
+        "unit_price_quantity_abbreviation": "kg",
+        "unit_price_quantity_name": "kilogram",
+        "currency": "NOK",
+        "discount": null,
+        "availability": {
+          "is_available": false,
+          "description": "Sold out",
+          "description_short": "Sold out",
+          "code": "sold_out"
+        },
+        "metadata": {
+          "is_sponsor_labeled": true,
+          "source_uuid": "source-uuid",
+          "is_promoted": true,
+          "placement_id": "placement-id"
+        },
+        "images": [
+          {
+            "large": {
+              "url": "https://images.oda.com/local_products/thigh-large.jpg"
+            },
+            "thumbnail": {
+              "url": "https://images.oda.com/local_products/thigh-thumb.jpg"
+            },
+            "variant": "main"
+          }
+        ]
+      }
+    }
+  ]
+}

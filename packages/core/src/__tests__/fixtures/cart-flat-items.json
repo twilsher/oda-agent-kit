@@ -1,0 +1,42 @@
+{
+  "id": 0,
+  "active_grouping": "none",
+  "label_text": "1 vare",
+  "product_quantity_count": 1,
+  "display_price": "29.90",
+  "total_gross_amount": "29.90",
+  "summary_lines": [
+    {
+      "id": "SummaryGroupSectionEnum.TOTAL",
+      "lines": [
+        {
+          "description": "Total inkl. MVA",
+          "long_description": null,
+          "gross_amount": "29.90",
+          "group_id": 9,
+          "section_id": 2,
+          "name": "GrossTotalAmount",
+          "display_style": "primary"
+        }
+      ]
+    }
+  ],
+  "currency": "NOK",
+  "items": [
+    {
+      "id": 9001,
+      "product": {
+        "id": 12079,
+        "full_name": "Tine Lettmelk 0,5% fett",
+        "brand": "TINE",
+        "name": "Tine Lettmelk",
+        "front_url": "https://oda.com/no/products/12079-tine-tine-lettmelk-05-fett/",
+        "gross_price": "29.90",
+        "gross_unit_price": "17.09",
+        "unit_price_quantity_abbreviation": "l"
+      },
+      "quantity": 1,
+      "display_price": "29.90"
+    }
+  ]
+}

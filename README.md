@@ -45,7 +45,8 @@ MCP stdio server exposing tool-style operations for model clients (e.g. Claude D
 node node_modules/@oda-agent/mcp-server/dist/main.js
 ```
 
-Exposes read-only tools.  See [Tool Contracts](docs/tool-contracts.md) for the full list.
+Exposes read-only tools plus confirmation-protected mutation tools. See
+[Tool Contracts](docs/tool-contracts.md) for the full list.
 
 ### `@oda-agent/openclaw-plugin`
 
@@ -123,6 +124,7 @@ The Oda API endpoint behaviour documented and implemented here was verified agai
 Key patterns adopted from that reference:
 
 - Login via `POST /api/v1/user/login/` with `{ username, password }` and CSRF cookie
+- Product search via `GET /api/v1/search/mixed/?q=<query>&type=product`
 - Cart mutations via `POST /api/v1/cart/items/` with `{ items: [{ product_id, quantity }] }`
 - Cart clear via `POST /api/v1/cart/clear/`
 - Cart response normalised from `groups[].items[]` into a flat `items[]` array

@@ -225,11 +225,15 @@ Output:
 
 ## Mutation tools (Level 1 — cart)
 
-> **Note:** These tool names describe the planned v1 MCP server interface. The current MCP server (`@oda-agent/mcp-server`) is **read-only** and does not yet expose mutation tools. Equivalent functionality is available today via the OpenClaw plugin through the higher-level `apply_cart_changes` tool.
+> **Current MCP status:** `oda_add_to_cart`, `oda_add_shopping_list_to_cart`,
+> and the raw fallback tool `oda_http_request` are implemented. The remaining
+> typed mutation tools in this section are planned follow-ups.
 
 Mutation tools require explicit user confirmation before execution.
 
-Each response includes a `proposed` delta so the agent can show a clear confirmation message.
+Each mutation input includes `confirmed: true`, which must only be set after the
+user has approved the specific change. Tools fail before touching Oda state when
+`confirmed` is not true.
 
 Allowed `status` values: `proposed`, `committed`.
 
@@ -239,8 +243,9 @@ Input:
 
 ```json
 {
-  "productId": "string",
-  "quantity": 2
+  "productId": 123,
+  "quantity": 2,
+  "confirmed": true
 }
 ```
 
@@ -274,7 +279,8 @@ Input:
 
 ```json
 {
-  "productId": "string"
+  "productId": 123,
+  "confirmed": true
 }
 ```
 
@@ -304,8 +310,9 @@ Input:
 
 ```json
 {
-  "productId": "string",
-  "quantity": 3
+  "productId": 123,
+  "quantity": 3,
+  "confirmed": true
 }
 ```
 
@@ -329,13 +336,14 @@ Output:
 }
 ```
 
-### `oda_apply_list_to_cart`
+### `oda_add_shopping_list_to_cart`
 
 Input:
 
 ```json
 {
-  "listId": "string"
+  "shopping_list_id": 123,
+  "confirmed": true
 }
 ```
 
@@ -362,11 +370,52 @@ Output:
 }
 ```
 
+### `oda_http_request`
+
+Raw Oda API fallback for endpoints that are not yet covered by typed tools or
+that have changed shape upstream. The tool authenticates with the stored Oda
+session like the typed tools.
+
+GET requests do not require confirmation. POST, PATCH, and DELETE require
+`confirmed: true` and are annotated as destructive and non-idempotent. Raw
+mutations for checkout, payment, and submitted-order endpoints are blocked for
+v0.
+
+Input:
+
+```json
+{
+  "method": "GET | POST | PATCH | DELETE",
+  "path": "/cart/items/",
+  "body": {
+    "items": [
+      {
+        "product_id": 123,
+        "quantity": 2
+      }
+    ]
+  },
+  "query": {
+    "group_by": "recipes"
+  },
+  "confirmed": true
+}
+```
+
+Output:
+
+```json
+{
+  "raw": "Oda JSON response, or null for 204/no JSON responses"
+}
+```
+
 ---
 
 ## Mutation tools (Level 2 — delivery slot)
 
-> **Note:** These tools are **planned for v1** and are not yet implemented in any adapter.
+> **Current MCP status:** delivery-slot mutation tools are planned follow-ups
+> and are not yet exposed by `@oda-agent/mcp-server`.
 
 These tools require stronger confirmation.  The confirmation message must include the date, time window, fee, and any reservation expiry information.
 
@@ -378,7 +427,8 @@ Input:
 
 ```json
 {
-  "slotId": "string"
+  "slotId": 123,
+  "confirmed": true
 }
 ```
 
@@ -401,13 +451,18 @@ Output:
 }
 ```
 
+When implemented, the MCP server should expose this operation as
+`oda_select_delivery_slot`. Selecting a delivery slot must not place an order or
+perform payment.
+
 ### `oda_change_delivery_slot`
 
 Input:
 
 ```json
 {
-  "slotId": "string"
+  "slotId": 123,
+  "confirmed": true
 }
 ```
 
