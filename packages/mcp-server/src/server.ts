@@ -31,7 +31,9 @@ const PARAMETERIZED_TOOL_NAMES = [
 
 export const MUTATION_TOOL_NAMES = [
   'oda_add_to_cart',
+  'oda_remove_from_cart',
   'oda_add_shopping_list_to_cart',
+  'oda_set_delivery_slot',
   'oda_http_request',
 ] as const;
 
@@ -50,7 +52,10 @@ interface OdaMcpClient {
   getProduct(productId: number): Promise<OdaProduct>;
   getCart(): Promise<OdaCart>;
   addToCart(productId: number, quantity: number): Promise<OdaCartItem>;
+  removeFromCart(productId: number): Promise<OdaCart>;
+  removeCartLine(cartLineId: number): Promise<OdaCart>;
   applyShoppingListToCart(shoppingListId: number): Promise<OdaCart>;
+  setDeliverySlot(slotId: string): Promise<OdaDeliverySlot>;
   rawRequest(
     method: OdaHttpMethod,
     path: string,
@@ -238,14 +243,48 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
       description: 'Add a product to the Oda cart after explicit user confirmation. Does not place an order.',
       inputSchema: z.object({
         productId: z.number().int().positive().describe('The Oda product ID to add'),
-        quantity: z.number().int().positive().describe('Quantity to set/add for this product'),
+        quantity: z.number().int().nonnegative().describe('Quantity to set/add for this product. Use 0 to remove it.'),
         confirmed: z.boolean().describe('Must be true only after the user explicitly approved this cart change'),
       }),
       annotations: MUTATION_TOOL_ANNOTATIONS,
     },
     async ({ productId, quantity, confirmed }) => {
       requireConfirmed(confirmed);
+      if (quantity === 0) {
+        return createJsonResult(await client.removeFromCart(productId));
+      }
+
       return createJsonResult(await client.addToCart(productId, quantity));
+    },
+  );
+
+  const removeFromCartInputSchema = z.object({
+    cart_line_id: z.number().int().positive().optional().describe('The Oda cart line item ID, e.g. cart.items[].id'),
+    product_id: z.number().int().positive().optional().describe('The Oda product ID, e.g. cart.items[].product.id'),
+    confirmed: z.boolean().describe('Must be true only after the user explicitly approved this cart removal'),
+  }).refine(
+    (input) => (input.cart_line_id === undefined) !== (input.product_id === undefined),
+    'Provide exactly one of cart_line_id or product_id.',
+  );
+
+  server.registerTool(
+    'oda_remove_from_cart',
+    {
+      description: 'Remove a single product or cart line from the Oda cart after explicit user confirmation. Does not place an order.',
+      inputSchema: removeFromCartInputSchema,
+      annotations: MUTATION_TOOL_ANNOTATIONS,
+    },
+    async ({ cart_line_id, product_id, confirmed }) => {
+      requireConfirmed(confirmed);
+      if (cart_line_id !== undefined) {
+        return createJsonResult(await client.removeCartLine(cart_line_id));
+      }
+
+      if (product_id === undefined) {
+        throw new Error('Provide exactly one of cart_line_id or product_id.');
+      }
+
+      return createJsonResult(await client.removeFromCart(product_id));
     },
   );
 
@@ -262,6 +301,22 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
     async ({ shopping_list_id, confirmed }) => {
       requireConfirmed(confirmed);
       return createJsonResult(await client.applyShoppingListToCart(shopping_list_id));
+    },
+  );
+
+  server.registerTool(
+    'oda_set_delivery_slot',
+    {
+      description: 'Set the Oda delivery slot for the current cart after explicit user confirmation. Does not place an order or touch payment.',
+      inputSchema: z.object({
+        slot_id: z.string().min(1).describe('The Oda delivery slot identifier returned by oda_get_delivery_slots'),
+        confirmed: z.boolean().describe('Must be true only after the user explicitly approved this delivery-slot change'),
+      }),
+      annotations: MUTATION_TOOL_ANNOTATIONS,
+    },
+    async ({ slot_id, confirmed }) => {
+      requireConfirmed(confirmed);
+      return createJsonResult(await client.setDeliverySlot(slot_id));
     },
   );
 

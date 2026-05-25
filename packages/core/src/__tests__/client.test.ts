@@ -182,6 +182,50 @@ describe('OdaClient', () => {
     }));
   });
 
+  it('removes cart products by setting quantity to zero', async () => {
+    const httpClient: OdaHttpClient = {
+      request: jest.fn(async () => createJsonResponse(cartFixture)),
+    };
+    const client = new OdaClient({ httpClient });
+
+    await client.removeFromCart(123);
+
+    expect(httpClient.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'POST',
+      path: '/cart/items/?group_by=recipes',
+      body: JSON.stringify({ items: [{ product_id: 123, quantity: 0 }] }),
+    }));
+  });
+
+  it('removes cart lines by resolving the line id to a product id first', async () => {
+    const httpClient: OdaHttpClient = {
+      request: jest.fn(async ({ path }) => {
+        if (path === '/cart/?group-by=recipes') {
+          return createJsonResponse(cartFixture);
+        }
+
+        if (path === '/cart/items/?group_by=recipes') {
+          return createJsonResponse(cartFixture);
+        }
+
+        throw new Error(`Unexpected path: ${path}`);
+      }),
+    };
+    const client = new OdaClient({ httpClient });
+
+    await client.removeCartLine(501);
+
+    expect(httpClient.request).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      method: 'GET',
+      path: '/cart/?group-by=recipes',
+    }));
+    expect(httpClient.request).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      method: 'POST',
+      path: '/cart/items/?group_by=recipes',
+      body: JSON.stringify({ items: [{ product_id: 123, quantity: 0 }] }),
+    }));
+  });
+
   it('sends bulk cart mutations with list provenance metadata in one request', async () => {
     const httpClient: OdaHttpClient = {
       request: jest.fn(async () => createJsonResponse(cartFixture)),
@@ -356,7 +400,40 @@ describe('OdaClient', () => {
     }));
   });
 
-  it('selects a delivery slot without placing an order', async () => {
+  it('sets a delivery slot without placing an order', async () => {
+    const httpClient: OdaHttpClient = {
+      request: jest.fn(async ({ path }) => {
+        if (path === '/slot-picker/info/') {
+          return createJsonResponse({}, 204);
+        }
+
+        if (path === '/slot-picker/slots/?num-days=3') {
+          return createJsonResponse(slotPickerSlotsFixture);
+        }
+
+        throw new Error(`Unexpected path: ${path}`);
+      }),
+    };
+    const client = new OdaClient({ httpClient });
+
+    const slot = await client.setDeliverySlot('101');
+
+    expect(slot.id).toBe(101);
+    expect(httpClient.request).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      method: 'POST',
+      path: '/slot-picker/info/',
+      body: JSON.stringify({ deliverySlotId: 101, inModal: false }),
+    }));
+    expect(httpClient.request).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      method: 'GET',
+      path: '/slot-picker/slots/?num-days=3',
+    }));
+    expect(httpClient.request).not.toHaveBeenCalledWith(expect.objectContaining({
+      path: expect.stringContaining('order'),
+    }));
+  });
+
+  it('keeps selectDeliverySlot as a numeric compatibility alias', async () => {
     const httpClient: OdaHttpClient = {
       request: jest.fn(async ({ path }) => {
         if (path === '/slot-picker/info/') {
@@ -379,13 +456,6 @@ describe('OdaClient', () => {
       method: 'POST',
       path: '/slot-picker/info/',
       body: JSON.stringify({ deliverySlotId: 101, inModal: false }),
-    }));
-    expect(httpClient.request).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      method: 'GET',
-      path: '/slot-picker/slots/?num-days=3',
-    }));
-    expect(httpClient.request).not.toHaveBeenCalledWith(expect.objectContaining({
-      path: expect.stringContaining('order'),
     }));
   });
 

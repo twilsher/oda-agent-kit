@@ -225,9 +225,10 @@ Output:
 
 ## Mutation tools (Level 1 — cart)
 
-> **Current MCP status:** `oda_add_to_cart`, `oda_add_shopping_list_to_cart`,
-> and the raw fallback tool `oda_http_request` are implemented. The remaining
-> typed mutation tools in this section are planned follow-ups.
+> **Current MCP status:** `oda_add_to_cart`, `oda_remove_from_cart`,
+> `oda_add_shopping_list_to_cart`, and the raw fallback tool `oda_http_request`
+> are implemented. The remaining typed mutation tools in this section are
+> planned follow-ups.
 
 Mutation tools require explicit user confirmation before execution.
 
@@ -248,6 +249,9 @@ Input:
   "confirmed": true
 }
 ```
+
+`quantity: 0` is accepted as a remove-by-product alias and uses the same Oda
+cart update endpoint as `oda_remove_from_cart`.
 
 Output (proposed — not yet committed):
 
@@ -279,8 +283,39 @@ Input:
 
 ```json
 {
-  "productId": 123,
+  "product_id": 123,
   "confirmed": true
+}
+```
+
+or:
+
+```json
+{
+  "cart_line_id": 683630902,
+  "confirmed": true
+}
+```
+
+Exactly one of `product_id` or `cart_line_id` must be provided. Cart-line
+removal first reads the cart, resolves `cart.items[].id` to
+`cart.items[].product.id`, then removes by product ID.
+
+Oda endpoint shape:
+
+```http
+POST /api/v1/cart/items/?group_by=recipes
+Content-Type: application/json
+```
+
+```json
+{
+  "items": [
+    {
+      "product_id": 25257,
+      "quantity": 0
+    }
+  ]
 }
 ```
 
@@ -414,20 +449,20 @@ Output:
 
 ## Mutation tools (Level 2 — delivery slot)
 
-> **Current MCP status:** delivery-slot mutation tools are planned follow-ups
-> and are not yet exposed by `@oda-agent/mcp-server`.
+> **Current MCP status:** `oda_set_delivery_slot` is implemented. Additional
+> delivery-slot mutation tools are planned follow-ups.
 
 These tools require stronger confirmation.  The confirmation message must include the date, time window, fee, and any reservation expiry information.
 
 Allowed `status` values: `proposed`, `committed`.
 
-### `oda_reserve_delivery_slot`
+### `oda_set_delivery_slot`
 
 Input:
 
 ```json
 {
-  "slotId": 123,
+  "slot_id": "123",
   "confirmed": true
 }
 ```
@@ -451,9 +486,10 @@ Output:
 }
 ```
 
-When implemented, the MCP server should expose this operation as
-`oda_select_delivery_slot`. Selecting a delivery slot must not place an order or
-perform payment.
+The tool currently selects a slot through Oda's slot-picker flow:
+`POST /api/v1/slot-picker/info/` with `{ "deliverySlotId": 123, "inModal": false }`,
+then re-reads available slots. Selecting a delivery slot must not place an order
+or perform payment.
 
 ### `oda_change_delivery_slot`
 

@@ -95,6 +95,30 @@ function createMockOdaClient(): Parameters<typeof createOdaMcpServer>[0] {
       unit_price: '29.90',
       label: null,
     }),
+    removeFromCart: jest.fn().mockResolvedValue({
+      id: 1,
+      items: [],
+      label: null,
+      display_price: null,
+      subtotal_price: '0.00',
+      summary_lines: [],
+      fee_lines: [],
+      total_price: '0.00',
+      currency: 'NOK',
+      item_count: 0,
+    }),
+    removeCartLine: jest.fn().mockResolvedValue({
+      id: 1,
+      items: [],
+      label: null,
+      display_price: null,
+      subtotal_price: '0.00',
+      summary_lines: [],
+      fee_lines: [],
+      total_price: '0.00',
+      currency: 'NOK',
+      item_count: 0,
+    }),
     applyShoppingListToCart: jest.fn().mockResolvedValue({
       id: 1,
       items: [
@@ -136,6 +160,14 @@ function createMockOdaClient(): Parameters<typeof createOdaMcpServer>[0] {
       total_price: '59.80',
       currency: 'NOK',
       item_count: 2,
+    }),
+    setDeliverySlot: jest.fn().mockResolvedValue({
+      id: 101,
+      start: '2026-05-15T08:00:00+02:00',
+      end: '2026-05-15T10:00:00+02:00',
+      price: '0.00',
+      currency: 'NOK',
+      is_available: true,
     }),
     rawRequest: jest.fn().mockResolvedValue({
       raw: true,
@@ -381,6 +413,84 @@ describe('createOdaMcpServer', () => {
     }
   });
 
+  it('treats add-to-cart quantity zero as a remove-by-product request', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_add_to_cart',
+        arguments: { productId: 123, quantity: 0, confirmed: true },
+      });
+
+      expect(odaClient.addToCart).not.toHaveBeenCalled();
+      expect(odaClient.removeFromCart).toHaveBeenCalledWith(123);
+      expect(JSON.parse(getTextResult(result))).toEqual(expect.objectContaining({
+        item_count: 0,
+      }));
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('requires explicit confirmation before removing from the cart', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_remove_from_cart',
+        arguments: { product_id: 123, confirmed: false },
+      });
+
+      expect((result as { isError?: boolean }).isError).toBe(true);
+      expect(getTextResult(result)).toContain('confirmed=true');
+      expect(odaClient.removeFromCart).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('executes confirmed remove-from-cart mutations by product id', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_remove_from_cart',
+        arguments: { product_id: 123, confirmed: true },
+      });
+
+      expect(odaClient.removeFromCart).toHaveBeenCalledWith(123);
+      expect(odaClient.removeCartLine).not.toHaveBeenCalled();
+      expect(JSON.parse(getTextResult(result))).toEqual(expect.objectContaining({
+        item_count: 0,
+      }));
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('executes confirmed remove-from-cart mutations by cart line id', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_remove_from_cart',
+        arguments: { cart_line_id: 683630902, confirmed: true },
+      });
+
+      expect(odaClient.removeCartLine).toHaveBeenCalledWith(683630902);
+      expect(odaClient.removeFromCart).not.toHaveBeenCalled();
+      expect(JSON.parse(getTextResult(result))).toEqual(expect.objectContaining({
+        item_count: 0,
+      }));
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
   it('requires explicit confirmation before adding a shopping list to the cart', async () => {
     const odaClient = createMockOdaClient();
     const { server, mcpClient } = await connectTestClient(odaClient);
@@ -413,6 +523,45 @@ describe('createOdaMcpServer', () => {
       expect(JSON.parse(getTextResult(addResult))).toEqual(expect.objectContaining({
         id: 1,
         item_count: 2,
+      }));
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('requires explicit confirmation before setting a delivery slot', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_set_delivery_slot',
+        arguments: { slot_id: '101', confirmed: false },
+      });
+
+      expect((result as { isError?: boolean }).isError).toBe(true);
+      expect(getTextResult(result)).toContain('confirmed=true');
+      expect(odaClient.setDeliverySlot).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it('executes confirmed delivery-slot mutations through the Oda client', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+
+    try {
+      const result = await mcpClient.callTool({
+        name: 'oda_set_delivery_slot',
+        arguments: { slot_id: '101', confirmed: true },
+      });
+
+      expect(odaClient.setDeliverySlot).toHaveBeenCalledWith('101');
+      expect(JSON.parse(getTextResult(result))).toEqual(expect.objectContaining({
+        id: 101,
+        start: '2026-05-15T08:00:00+02:00',
+        end: '2026-05-15T10:00:00+02:00',
       }));
     } finally {
       await Promise.all([mcpClient.close(), server.close()]);

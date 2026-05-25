@@ -323,12 +323,19 @@ export class OdaClient {
    *
    * @param productId - The Oda product ID (i.e. `cart.items[].product.id`).
    */
-  async removeFromCart(productId: number): Promise<void> {
-    await this.post(
-      '/cart/items/?group_by=recipes',
-      { items: [{ product_id: productId, quantity: 0 }] },
-      OdaRawCartSchema,
-    );
+  async removeFromCart(productId: number): Promise<OdaCart> {
+    return this.updateCartItemQuantity(productId, 0);
+  }
+
+  /** Remove a cart line item by its cart line ID. */
+  async removeCartLine(cartLineId: number): Promise<OdaCart> {
+    const cart = await this.getCart();
+    const item = cart.items.find((cartItem) => cartItem.id === cartLineId);
+    if (!item) {
+      throw new OdaApiError(404, `Cart line ${cartLineId} was not found in the current cart`);
+    }
+
+    return this.removeFromCart(item.product.id);
   }
 
   /** Apply a batch of cart item mutations in one request, preserving per-item metadata. */
@@ -437,15 +444,17 @@ export class OdaClient {
    * This reserves/updates the delivery window only; it does not place an order
    * and does not touch payment.
    */
-  async selectDeliverySlot(slotId: number): Promise<OdaDeliverySlot> {
+  async setDeliverySlot(slotId: string): Promise<OdaDeliverySlot> {
+    const deliverySlotId = /^\d+$/.test(slotId) ? Number(slotId) : slotId;
+
     await this.requestNoContent(
       'POST',
       '/slot-picker/info/',
-      { deliverySlotId: slotId, inModal: false },
+      { deliverySlotId, inModal: false },
       'Select delivery slot failed',
     );
     const slots = await this.getDeliverySlots();
-    const selected = slots.find((slot) => slot.id === slotId);
+    const selected = slots.find((slot) => String(slot.id) === slotId);
     if (!selected) {
       throw new OdaApiError(
         500,
@@ -453,6 +462,11 @@ export class OdaClient {
       );
     }
     return selected;
+  }
+
+  /** Backwards-compatible alias for numeric delivery slot IDs. */
+  async selectDeliverySlot(slotId: number): Promise<OdaDeliverySlot> {
+    return this.setDeliverySlot(String(slotId));
   }
 
   /** Execute a raw Oda API request using the stored session and CSRF credentials. */
