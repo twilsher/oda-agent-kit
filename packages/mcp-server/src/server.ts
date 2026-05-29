@@ -262,10 +262,7 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
     cart_line_id: z.number().int().positive().optional().describe('The Oda cart line item ID, e.g. cart.items[].id'),
     product_id: z.number().int().positive().optional().describe('The Oda product ID, e.g. cart.items[].product.id'),
     confirmed: z.boolean().describe('Must be true only after the user explicitly approved this cart removal'),
-  }).refine(
-    (input) => (input.cart_line_id === undefined) !== (input.product_id === undefined),
-    'Provide exactly one of cart_line_id or product_id.',
-  );
+  });
 
   server.registerTool(
     'oda_remove_from_cart',
@@ -276,6 +273,10 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
     },
     async ({ cart_line_id, product_id, confirmed }) => {
       requireConfirmed(confirmed);
+      if ((cart_line_id === undefined) === (product_id === undefined)) {
+        throw new Error('Provide exactly one of cart_line_id or product_id.');
+      }
+
       if (cart_line_id !== undefined) {
         return createJsonResult(await client.removeCartLine(cart_line_id));
       }
