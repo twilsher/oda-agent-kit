@@ -378,7 +378,10 @@ describe('OdaClient', () => {
     const httpClient: OdaHttpClient = {
       request: jest.fn(async () => createJsonResponse(slotPickerSlotsFixture)),
     };
-    const client = new OdaClient({ httpClient });
+    const client = new OdaClient({
+      httpClient,
+      now: () => new Date('2026-05-30T10:15:00+02:00'),
+    });
 
     const slots = await client.getDeliverySlots();
 
@@ -396,7 +399,11 @@ describe('OdaClient', () => {
     ]);
     expect(httpClient.request).toHaveBeenCalledWith(expect.objectContaining({
       method: 'GET',
-      path: '/slot-picker/slots/?num-days=3',
+      path: '/slot-picker/slots/?num-days=3&date=2026-05-30&_=1780128900000',
+      headers: expect.objectContaining({
+        'Cache-Control': 'no-cache, no-store, max-age=0',
+        Pragma: 'no-cache',
+      }),
     }));
   });
 
@@ -407,14 +414,17 @@ describe('OdaClient', () => {
           return createJsonResponse({}, 204);
         }
 
-        if (path === '/slot-picker/slots/?num-days=3') {
+        if (path.startsWith('/slot-picker/slots/?num-days=3&date=2026-05-30&_=')) {
           return createJsonResponse(slotPickerSlotsFixture);
         }
 
         throw new Error(`Unexpected path: ${path}`);
       }),
     };
-    const client = new OdaClient({ httpClient });
+    const client = new OdaClient({
+      httpClient,
+      now: () => new Date('2026-05-30T10:15:00+02:00'),
+    });
 
     const slot = await client.setDeliverySlot('101');
 
@@ -426,7 +436,7 @@ describe('OdaClient', () => {
     }));
     expect(httpClient.request).toHaveBeenNthCalledWith(2, expect.objectContaining({
       method: 'GET',
-      path: '/slot-picker/slots/?num-days=3',
+      path: '/slot-picker/slots/?num-days=3&date=2026-05-30&_=1780128900000',
     }));
     expect(httpClient.request).not.toHaveBeenCalledWith(expect.objectContaining({
       path: expect.stringContaining('order'),
@@ -440,14 +450,17 @@ describe('OdaClient', () => {
           return createJsonResponse({}, 204);
         }
 
-        if (path === '/slot-picker/slots/?num-days=3') {
+        if (path.startsWith('/slot-picker/slots/?num-days=3&date=2026-05-30&_=')) {
           return createJsonResponse(slotPickerSlotsFixture);
         }
 
         throw new Error(`Unexpected path: ${path}`);
       }),
     };
-    const client = new OdaClient({ httpClient });
+    const client = new OdaClient({
+      httpClient,
+      now: () => new Date('2026-05-30T10:15:00+02:00'),
+    });
 
     const slot = await client.selectDeliverySlot(101);
 

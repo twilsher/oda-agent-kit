@@ -319,6 +319,8 @@ export interface OdaClientOptions {
   httpClient?: OdaHttpClient;
   /** Override how the client stores session tokens. */
   sessionStore?: OdaSessionStore;
+  /** Override current time source. Primarily useful for deterministic tests. */
+  now?: () => Date;
 }
 
 /** Backwards-compatible alias for OdaClient construction options. */

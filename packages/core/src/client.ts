@@ -192,12 +192,14 @@ export class OdaClient {
   private readonly httpClient: OdaHttpClient;
   private readonly sessionStore: OdaSessionStore;
   private readonly csrfPageUrl: string;
+  private readonly now: () => Date;
 
   constructor(private readonly config: OdaClientConfig) {
     this.credentials = config.credentials;
     this.httpClient = config.httpClient ?? new NodeFetchHttpClient(config.baseUrl ?? DEFAULT_BASE_URL);
     this.sessionStore = config.sessionStore ?? new InMemorySessionStore();
     this.csrfPageUrl = config.csrfPageUrl ?? DEFAULT_CSRF_PAGE_URL;
+    this.now = config.now ?? (() => new Date());
   }
 
   /**
@@ -435,7 +437,14 @@ export class OdaClient {
 
   /** List available delivery slots. */
   async getDeliverySlots(): Promise<OdaDeliverySlot[]> {
-    return this.get('/slot-picker/slots/?num-days=3', OdaSlotPickerDeliverySlotsSchema);
+    const now = this.now();
+    const today = this.formatOdaDate(now);
+    const cacheBust = now.getTime();
+    return this.get(
+      `/slot-picker/slots/?num-days=3&date=${today}&_=${cacheBust}`,
+      OdaSlotPickerDeliverySlotsSchema,
+      this.noCacheReadHeaders(),
+    );
   }
 
   /**
@@ -536,6 +545,26 @@ export class OdaClient {
     return headers;
   }
 
+  private noCacheReadHeaders(): Record<string, string> {
+    return {
+      ...this.readHeaders(),
+      'Cache-Control': 'no-cache, no-store, max-age=0',
+      Pragma: 'no-cache',
+    };
+  }
+
+  private formatOdaDate(date: Date): string {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Oslo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values['year']}-${values['month']}-${values['day']}`;
+  }
+
   private buildRawRequestPath(path: string, query?: Record<string, OdaRawQueryValue>): string {
     if (!path.startsWith('/') || path.startsWith('//') || /^https?:\/\//i.test(path)) {
       throw new Error('Raw Oda API path must be a relative path starting with "/".');
@@ -572,11 +601,15 @@ export class OdaClient {
     }
   }
 
-  private async get<T>(path: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>): Promise<T> {
+  private async get<T>(
+    path: string,
+    schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+    headers: Record<string, string> = this.readHeaders(),
+  ): Promise<T> {
     const response = await this.httpClient.request({
       method: 'GET',
       path,
-      headers: this.readHeaders(),
+      headers,
     });
     return this.parseResponse(path, response, schema);
   }
