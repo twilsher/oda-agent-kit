@@ -264,7 +264,9 @@ export class OdaClient {
 
   /** Search for products by query string. */
   async searchProducts(query: string): Promise<OdaSearchResponse> {
-    return this.get(`/search/?q=${encodeURIComponent(query)}`, OdaSearchResponseSchema);
+    const response = await this.get(`/search/?q=${encodeURIComponent(query)}`, OdaSearchResponseSchema);
+    // The new API format does not echo the query back; return a new object with it injected.
+    return response.query ? response : { ...response, query };
   }
 
   /** Get a single product by its ID. */
