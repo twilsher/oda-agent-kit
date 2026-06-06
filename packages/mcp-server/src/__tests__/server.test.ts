@@ -246,6 +246,7 @@ describe('createOdaMcpServer', () => {
           product_id: expect.objectContaining({ type: 'integer' }),
           confirmed: expect.objectContaining({ type: 'boolean' }),
         },
+        required: ['confirmed'],
         type: 'object',
       });
     } finally {

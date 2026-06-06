@@ -41,6 +41,16 @@ interface NodeFetchHeadersWithRaw {
 
 type FetchResponse = Awaited<ReturnType<typeof import('node-fetch')['default']>>;
 
+type OdaRawCart = z.infer<typeof OdaRawCartSchema>;
+type OdaRawCartItem = NonNullable<OdaRawCart['groups']>[number]['items'][number] & {
+  quantity_added_by_agent?: number;
+  source_added_from?: Array<{
+    id?: number | string;
+    source?: string;
+    quantity?: number | string;
+  }>;
+};
+
 class InMemorySessionStore implements OdaSessionStore {
   private token: string | null = null;
   private csrf: string | null = null;
@@ -279,7 +289,7 @@ export class OdaClient {
 
   /** Retrieve the current cart. */
   async getCart(): Promise<OdaCart> {
-    const raw = await this.get('/cart/?group-by=recipes', OdaRawCartSchema);
+    const raw = await this.getRawCart();
     return normalizeCart(raw);
   }
 
@@ -307,7 +317,7 @@ export class OdaClient {
     return item;
   }
 
-  /** Set a product's cart quantity. Use 0 to remove the product. */
+  /** Apply a product quantity delta through the cart items endpoint. */
   async updateCartItemQuantity(productId: number, quantity: number): Promise<OdaCart> {
     const raw = await this.post(
       '/cart/items/?group_by=recipes',
@@ -317,27 +327,26 @@ export class OdaClient {
     return normalizeCart(raw);
   }
 
-  /**
-   * Remove a product from the cart by its product ID.
-   *
-   * Sets the item's quantity to 0 via the Oda cart items endpoint, which
-   * causes the API to remove the line item entirely.
-   *
-   * @param productId - The Oda product ID (i.e. `cart.items[].product.id`).
-   */
+  /** Remove every current cart contribution for a product by its product ID. */
   async removeFromCart(productId: number): Promise<OdaCart> {
-    return this.updateCartItemQuantity(productId, 0);
+    const raw = await this.getRawCart();
+    const items = this.getRawCartItems(raw).filter((cartItem) => cartItem.product.id === productId);
+    if (items.length === 0) {
+      throw new OdaApiError(404, `Product ${productId} was not found in the current cart`);
+    }
+
+    return this.bulkUpdateCartItems(items.flatMap((item) => this.buildRemoveCartItemMutations(item)));
   }
 
   /** Remove a cart line item by its cart line ID. */
   async removeCartLine(cartLineId: number): Promise<OdaCart> {
-    const cart = await this.getCart();
-    const item = cart.items.find((cartItem) => cartItem.id === cartLineId);
+    const raw = await this.getRawCart();
+    const item = this.getRawCartItems(raw).find((cartItem) => (cartItem.item_id ?? cartItem.id) === cartLineId);
     if (!item) {
       throw new OdaApiError(404, `Cart line ${cartLineId} was not found in the current cart`);
     }
 
-    return this.removeFromCart(item.product.id);
+    return this.bulkUpdateCartItems(this.buildRemoveCartItemMutations(item));
   }
 
   /** Apply a batch of cart item mutations in one request, preserving per-item metadata. */
@@ -508,6 +517,48 @@ export class OdaClient {
     } catch {
       return null;
     }
+  }
+
+  private async getRawCart(): Promise<OdaRawCart> {
+    return this.get('/cart/?group-by=recipes', OdaRawCartSchema);
+  }
+
+  private getRawCartItems(raw: OdaRawCart): OdaRawCartItem[] {
+    const groups = raw.groups ?? [{ items: raw.items ?? [] }];
+    return groups.flatMap((group) => group.items) as OdaRawCartItem[];
+  }
+
+  private buildRemoveCartItemMutations(item: OdaRawCartItem): OdaCartMutationItem[] {
+    const productId = item.product.id;
+    const mutations: OdaCartMutationItem[] = [];
+
+    for (const source of item.source_added_from ?? []) {
+      const sourceQuantity = typeof source.quantity === 'number' ? source.quantity : Number(source.quantity);
+      const fromListId = typeof source.id === 'number' ? source.id : Number(source.id);
+      if (source.source === 'product_list' && Number.isFinite(fromListId) && sourceQuantity > 0) {
+        mutations.push({
+          product_id: productId,
+          quantity: -sourceQuantity,
+          from_list_id: fromListId,
+        });
+      }
+    }
+
+    if (typeof item.quantity_added_by_agent === 'number' && item.quantity_added_by_agent > 0) {
+      mutations.push({
+        product_id: productId,
+        quantity: -item.quantity_added_by_agent,
+      });
+    }
+
+    if (mutations.length === 0 && item.quantity > 0) {
+      mutations.push({
+        product_id: productId,
+        quantity: -item.quantity,
+      });
+    }
+
+    return mutations;
   }
 
   private readHeaders(): Record<string, string> {

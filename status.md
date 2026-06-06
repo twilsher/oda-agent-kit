@@ -16,3 +16,5 @@
 - Fixed current Oda slot-picker response parsing: live payload now uses `delivery_slots` plus snake_case slot fields (`open_datetime`, `close_datetime`, `is_full`, `is_unavailable`).
 - Added sanitized fixture coverage for the snake_case slot-picker payload.
 - Live check parsed 47 slots successfully; Jun 7 slots were present but unavailable due cart product availability constraints, with available slots starting Jun 8.
+- Fixed cart removal for product-list sourced rows: removal now reads the raw cart and posts negative quantity deltas to `/cart/items/?group_by=recipes`, including `from_list_id` where Oda reports list provenance.
+- Re-registered `oda_remove_from_cart` with a raw Zod shape and tightened schema coverage so `confirmed`, `product_id`, and `cart_line_id` remain visible to MCP clients.

@@ -182,22 +182,36 @@ describe('OdaClient', () => {
     }));
   });
 
-  it('removes cart products by setting quantity to zero', async () => {
+  it('removes cart products by sending a negative current-quantity delta', async () => {
     const httpClient: OdaHttpClient = {
-      request: jest.fn(async () => createJsonResponse(cartFixture)),
+      request: jest.fn(async ({ path }) => {
+        if (path === '/cart/?group-by=recipes') {
+          return createJsonResponse(cartFixture);
+        }
+
+        if (path === '/cart/items/?group_by=recipes') {
+          return createJsonResponse(cartFixture);
+        }
+
+        throw new Error(`Unexpected path: ${path}`);
+      }),
     };
     const client = new OdaClient({ httpClient });
 
     await client.removeFromCart(123);
 
-    expect(httpClient.request).toHaveBeenCalledWith(expect.objectContaining({
+    expect(httpClient.request).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      method: 'GET',
+      path: '/cart/?group-by=recipes',
+    }));
+    expect(httpClient.request).toHaveBeenNthCalledWith(2, expect.objectContaining({
       method: 'POST',
       path: '/cart/items/?group_by=recipes',
-      body: JSON.stringify({ items: [{ product_id: 123, quantity: 0 }] }),
+      body: JSON.stringify({ items: [{ product_id: 123, quantity: -2 }] }),
     }));
   });
 
-  it('removes cart lines by resolving the line id to a product id first', async () => {
+  it('removes cart lines by sending a negative current-quantity delta', async () => {
     const httpClient: OdaHttpClient = {
       request: jest.fn(async ({ path }) => {
         if (path === '/cart/?group-by=recipes') {
@@ -222,7 +236,60 @@ describe('OdaClient', () => {
     expect(httpClient.request).toHaveBeenNthCalledWith(2, expect.objectContaining({
       method: 'POST',
       path: '/cart/items/?group_by=recipes',
-      body: JSON.stringify({ items: [{ product_id: 123, quantity: 0 }] }),
+      body: JSON.stringify({ items: [{ product_id: 123, quantity: -2 }] }),
+    }));
+  });
+
+  it('removes product-list sourced cart lines with list provenance in the decrement payload', async () => {
+    const productListCartFixture = {
+      ...cartFixture,
+      groups: [
+        {
+          ...cartFixture.groups[0],
+          items: [
+            {
+              ...cartFixture.groups[0].items[0],
+              quantity: 3,
+              quantity_added_by_agent: 1,
+              source_added_from: [
+                {
+                  id: '618123',
+                  title: 'Mexican Quinoa Salad',
+                  source: 'product_list',
+                  quantity: 2,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const httpClient: OdaHttpClient = {
+      request: jest.fn(async ({ path }) => {
+        if (path === '/cart/?group-by=recipes') {
+          return createJsonResponse(productListCartFixture);
+        }
+
+        if (path === '/cart/items/?group_by=recipes') {
+          return createJsonResponse(cartFixture);
+        }
+
+        throw new Error(`Unexpected path: ${path}`);
+      }),
+    };
+    const client = new OdaClient({ httpClient });
+
+    await client.removeCartLine(501);
+
+    expect(httpClient.request).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      method: 'POST',
+      path: '/cart/items/?group_by=recipes',
+      body: JSON.stringify({
+        items: [
+          { product_id: 123, quantity: -2, from_list_id: 618123 },
+          { product_id: 123, quantity: -1 },
+        ],
+      }),
     }));
   });
 

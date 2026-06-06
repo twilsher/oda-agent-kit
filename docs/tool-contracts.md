@@ -297,9 +297,10 @@ or:
 }
 ```
 
-Exactly one of `product_id` or `cart_line_id` must be provided. Cart-line
-removal first reads the cart, resolves `cart.items[].id` to
-`cart.items[].product.id`, then removes by product ID.
+Exactly one of `product_id` or `cart_line_id` must be provided. Removal first
+reads the cart, then sends negative quantity deltas for the current row. For
+items sourced from a product list, the decrement preserves `from_list_id` so
+Oda removes the list-sourced contribution rather than only agent-added quantity.
 
 Oda endpoint shape:
 
@@ -313,7 +314,8 @@ Content-Type: application/json
   "items": [
     {
       "product_id": 25257,
-      "quantity": 0
+      "quantity": -1,
+      "from_list_id": 618123
     }
   ]
 }

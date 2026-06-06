@@ -258,11 +258,11 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
     },
   );
 
-  const removeFromCartInputSchema = z.object({
+  const removeFromCartInputSchema = {
     cart_line_id: z.number().int().positive().optional().describe('The Oda cart line item ID, e.g. cart.items[].id'),
     product_id: z.number().int().positive().optional().describe('The Oda product ID, e.g. cart.items[].product.id'),
     confirmed: z.boolean().describe('Must be true only after the user explicitly approved this cart removal'),
-  });
+  };
 
   server.registerTool(
     'oda_remove_from_cart',
