@@ -173,25 +173,23 @@ triggered two ways:
 2. **Manual dispatch** — go to _Actions → Publish packages → Run workflow_ in the
    GitHub UI and choose the dist-tag (`latest`, `rc`, `beta`, `alpha`).
 
-The workflow builds all packages and publishes them in the correct order using the
-`NPM_TOKEN` secret that must be set in the repository's _Settings → Secrets_.
+The workflow builds all packages and publishes them in the correct order using
+`NODE_AUTH_TOKEN` from the repository `NPM_TOKEN` secret.
 
 See `.github/workflows/publish.yml` for the full configuration.
 
-### Setting up NPM_TOKEN
+### Setting up npm publish authentication
 
-Before running the publish workflow you must add an npm access token to the repo:
+Before running the publish workflow, create an npm automation token and add it
+as a GitHub repository secret named `NPM_TOKEN`:
 
-1. Log in to [npmjs.com](https://www.npmjs.com) and go to
-   _Profile → Access Tokens → Generate New Token_.
-2. Choose **Granular Access Token** (or **Classic Token** with `Automation` type).
-3. Grant **Read and Write** (publish) permission for the `@oda-agent` scope.
-4. Copy the token.
-5. In the GitHub repository go to
-   _Settings → Secrets and variables → Actions → New repository secret_.
-6. Name: `NPM_TOKEN`, Value: the token you copied.
+1. Log in to [npmjs.com](https://www.npmjs.com).
+2. Create an automation token that can publish `@oda-agent/*` packages.
+3. In GitHub, open `dinorastoder/oda-agent-kit` → **Settings** → **Secrets and variables** → **Actions**.
+4. Add a new repository secret named `NPM_TOKEN` with the token value.
 
-The publish workflow reads this secret as `NODE_AUTH_TOKEN`.
+The publish job injects this secret as `NODE_AUTH_TOKEN` for each `npm publish`
+step.
 
 ### Workflow jobs
 

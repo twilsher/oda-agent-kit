@@ -335,9 +335,22 @@ const OdaMixedSearchResponseSchema: z.ZodType<OdaSearchResponse, z.ZodTypeDef, u
   };
 });
 
+const OdaProductsSearchResponseSchema: z.ZodType<OdaSearchResponse, z.ZodTypeDef, unknown> = z.object({
+  products: z.array(OdaCatalogProductSchema),
+  attributes: z.object({
+    total_hits: z.number().int(),
+    query_string: z.string().optional(),
+  }).passthrough(),
+}).passthrough().transform((response) => ({
+  results: response.products,
+  count: response.attributes.total_hits,
+  query: response.attributes.query_string ?? '',
+}));
+
 export const OdaSearchResponseSchema: z.ZodType<OdaSearchResponse, z.ZodTypeDef, unknown> = z.union([
   OdaLegacySearchResponseSchema,
   OdaMixedSearchResponseSchema,
+  OdaProductsSearchResponseSchema,
 ]);
 
 /** Zod schema for login responses. */

@@ -25,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # required for npm provenance
     outputs:
       version: ${{ steps.version.outputs.version }}
       dist_tag: ${{ steps.tag.outputs.dist_tag }}
@@ -37,7 +36,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           registry-url: 'https://registry.npmjs.org'
 
@@ -87,8 +86,7 @@ jobs:
           npm publish \
             --workspace=packages/core \
             --access public \
-            --tag "${{ steps.tag.outputs.dist_tag }}" \
-            --provenance
+            --tag "${{ steps.tag.outputs.dist_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -97,8 +95,7 @@ jobs:
           npm publish \
             --workspace=packages/cli \
             --access public \
-            --tag "${{ steps.tag.outputs.dist_tag }}" \
-            --provenance
+            --tag "${{ steps.tag.outputs.dist_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -107,8 +104,7 @@ jobs:
           npm publish \
             --workspace=packages/mcp-server \
             --access public \
-            --tag "${{ steps.tag.outputs.dist_tag }}" \
-            --provenance
+            --tag "${{ steps.tag.outputs.dist_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -117,8 +113,7 @@ jobs:
           npm publish \
             --workspace=packages/openclaw-plugin \
             --access public \
-            --tag "${{ steps.tag.outputs.dist_tag }}" \
-            --provenance
+            --tag "${{ steps.tag.outputs.dist_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -136,7 +131,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Wait for registry propagation
