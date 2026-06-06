@@ -253,25 +253,48 @@ export const OdaDeliverySlotSchema: z.ZodType<OdaDeliverySlot> = z.object({
 
 const OdaSlotPickerSlotSchema = z.object({
   id: z.number().int(),
-  openDatetime: z.string(),
-  closeDatetime: z.string(),
+  openDatetime: z.string().optional(),
+  closeDatetime: z.string().optional(),
+  open_datetime: z.string().optional(),
+  close_datetime: z.string().optional(),
   price: z.union([z.string(), z.number()]).optional(),
   isFull: z.boolean().optional(),
   isUnavailable: z.boolean().optional(),
-}).passthrough().transform((slot): OdaDeliverySlot => ({
-  id: slot.id,
-  start: slot.openDatetime,
-  end: slot.closeDatetime,
-  price: slot.price === undefined ? '0.00' : String(slot.price),
-  currency: 'NOK',
-  is_available: slot.isFull !== true && slot.isUnavailable !== true,
-}));
+  is_full: z.boolean().optional(),
+  is_unavailable: z.boolean().optional(),
+}).passthrough().transform((slot, ctx): OdaDeliverySlot => {
+  const start = slot.openDatetime ?? slot.open_datetime;
+  const end = slot.closeDatetime ?? slot.close_datetime;
+
+  if (!start || !end) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Slot picker slot is missing open/close datetime fields',
+    });
+    return z.NEVER;
+  }
+
+  return {
+    id: slot.id,
+    start,
+    end,
+    price: slot.price === undefined ? '0.00' : String(slot.price),
+    currency: 'NOK',
+    is_available: slot.isFull !== true
+      && slot.isUnavailable !== true
+      && slot.is_full !== true
+      && slot.is_unavailable !== true,
+  };
+});
 
 export const OdaSlotPickerDeliverySlotsSchema: z.ZodType<OdaDeliverySlot[], z.ZodTypeDef, unknown> = z.union([
   z.array(OdaDeliverySlotSchema),
   z.object({
     deliverySlots: z.array(OdaSlotPickerSlotSchema),
   }).passthrough().transform((response) => response.deliverySlots),
+  z.object({
+    delivery_slots: z.array(OdaSlotPickerSlotSchema),
+  }).passthrough().transform((response) => response.delivery_slots),
 ]);
 
 /** Zod schema for search responses. */

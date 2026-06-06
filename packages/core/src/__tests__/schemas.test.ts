@@ -22,6 +22,7 @@ import searchMixedResponseFixture from './fixtures/search-mixed-response.json';
 import searchResponseFixture from './fixtures/search-response.json';
 import shoppingListsFixture from './fixtures/shopping-lists.json';
 import slotPickerSlotsFixture from './fixtures/slot-picker-slots.json';
+import slotPickerSlotsSnakeCaseFixture from './fixtures/slot-picker-slots-snake-case.json';
 
 describe('core schemas', () => {
   it('parses search fixtures', () => {
@@ -201,6 +202,29 @@ describe('core schemas', () => {
         price: '79.00',
         currency: 'NOK',
         is_available: false,
+      },
+    ]);
+  });
+
+  it('normalises current snake_case slot-picker delivery slot payloads', () => {
+    const parsed = OdaSlotPickerDeliverySlotsSchema.parse(slotPickerSlotsSnakeCaseFixture);
+
+    expect(parsed).toEqual([
+      {
+        id: 1574384,
+        start: '2026-06-07T14:00:00Z',
+        end: '2026-06-07T19:00:00Z',
+        price: 'kr 34',
+        currency: 'NOK',
+        is_available: false,
+      },
+      {
+        id: 1575204,
+        start: '2026-06-08T02:00:00Z',
+        end: '2026-06-08T07:00:00Z',
+        price: 'kr 24',
+        currency: 'NOK',
+        is_available: true,
       },
     ]);
   });

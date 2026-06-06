@@ -11,3 +11,8 @@
 - Fixed stale delivery-slot responses by making `getDeliverySlots()` compute the Europe/Oslo current date on every call and include `date=<YYYY-MM-DD>` plus a timestamp cache-buster in `/slot-picker/slots/` requests.
 - Delivery-slot GETs now send no-cache request headers.
 - Rebuilt core and MCP packages; terminated stale running MCP server processes so reconnect starts the new code.
+
+## 2026-06-06
+- Fixed current Oda slot-picker response parsing: live payload now uses `delivery_slots` plus snake_case slot fields (`open_datetime`, `close_datetime`, `is_full`, `is_unavailable`).
+- Added sanitized fixture coverage for the snake_case slot-picker payload.
+- Live check parsed 47 slots successfully; Jun 7 slots were present but unavailable due cart product availability constraints, with available slots starting Jun 8.
