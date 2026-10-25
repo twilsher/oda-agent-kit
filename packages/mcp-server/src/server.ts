@@ -5,8 +5,8 @@ import type {
   OdaCartItem,
   OdaDeliverySlot,
   OdaHttpMethod,
-  OdaOrder,
-  OdaPage,
+  OdaOrderHistory,
+  OdaOrderDetails,
   OdaProduct,
   OdaRawQueryValue,
   OdaSearchResponse,
@@ -62,8 +62,8 @@ interface OdaMcpClient {
     body?: unknown,
     query?: Record<string, OdaRawQueryValue>,
   ): Promise<unknown>;
-  getOrders(page?: number): Promise<OdaPage<OdaOrder>>;
-  getOrder(orderId: number): Promise<OdaOrder>;
+  getOrders(page?: number, throughDate?: string): Promise<OdaOrderHistory>;
+  getOrder(orderNumber: string): Promise<OdaOrderDetails>;
   getShoppingLists(): Promise<OdaShoppingList[]>;
   getDeliverySlots(): Promise<OdaDeliverySlot[]>;
 }
@@ -199,22 +199,23 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
       description: 'Retrieve a page of past Oda orders.',
       inputSchema: z.object({
         page: z.number().int().positive().default(1).describe('Page number (default: 1)'),
+        through_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Date cursor from get_more_url (YYYY-MM-DD)'),
       }),
       annotations: READ_ONLY_TOOL_ANNOTATIONS,
     },
-    async ({ page }) => createJsonResult(await client.getOrders(page)),
+    async ({ page, through_date }) => createJsonResult(await client.getOrders(page, through_date)),
   );
 
   server.registerTool(
     'oda_get_order_details',
     {
-      description: 'Retrieve a single Oda order by order ID.',
+      description: 'Retrieve a single Oda order by its string order number.',
       inputSchema: z.object({
-        orderId: z.number().int().positive().describe('The Oda order ID'),
+        order_number: z.string().regex(/^[a-zA-Z0-9_-]+$/).describe('The string order_number returned by oda_get_orders'),
       }),
       annotations: READ_ONLY_TOOL_ANNOTATIONS,
     },
-    async ({ orderId }) => createJsonResult(await client.getOrder(orderId)),
+    async ({ order_number }) => createJsonResult(await client.getOrder(order_number)),
   );
 
   server.registerTool(

@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import {
-  createOdaPageSchema,
   normalizeCart,
   OdaSlotPickerDeliverySlotsSchema,
-  OdaOrderSchema,
+  OdaOrderHistorySchema,
+  OdaOrderDetailsSchema,
   OdaProductListDetailSchema,
   OdaProductListSummaryPageSchema,
   OdaProductSchema,
@@ -22,8 +22,8 @@ import type {
   OdaHttpMethod,
   OdaHttpRequest,
   OdaHttpResponse,
-  OdaOrder,
-  OdaPage,
+  OdaOrderHistory,
+  OdaOrderDetails,
   OdaProductListSummary,
   OdaRawQueryValue,
   OdaProduct,
@@ -394,14 +394,32 @@ export class OdaClient {
     }
   }
 
-  /** List past orders with optional pagination. */
-  async getOrders(page = 1): Promise<OdaPage<OdaOrder>> {
-    return this.get(`/orders/?page=${page}`, createOdaPageSchema(OdaOrderSchema));
+  /** Flatten month groups. Numeric pages follow Oda's date cursors. */
+  async getOrders(page = 1, throughDate?: string): Promise<OdaOrderHistory> {
+    if (!Number.isInteger(page) || page < 1) throw new Error('page must be a positive integer');
+    if (throughDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(throughDate)) {
+      throw new Error('through_date must use YYYY-MM-DD');
+    }
+    let path = throughDate ? `/orders/?through-date=${throughDate}` : '/orders/';
+    for (let current = 1; ; current++) {
+      const history = await this.get(path, OdaOrderHistorySchema);
+      if (current === page || !history.has_more) return current === page
+        ? history : { results: [], has_more: false, get_more_url: null };
+      if (!history.get_more_url) throw new Error('Order history has_more without get_more_url');
+      const cursor = new URL(history.get_more_url, 'https://oda.com/api/v1/orders/');
+      const date = cursor.searchParams.get('through-date');
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid order history cursor');
+      const nextPath = `/orders/?through-date=${date}`;
+      if (path === nextPath) throw new Error('Order history cursor did not advance');
+      path = nextPath;
+    }
   }
 
-  /** Get a single order by its ID. */
-  async getOrder(orderId: number): Promise<OdaOrder> {
-    return this.get(`/orders/${orderId}/`, OdaOrderSchema);
+  /** Get details by Oda's string order number. */
+  async getOrder(orderNumber: string): Promise<OdaOrderDetails> {
+    if (!/^[a-zA-Z0-9_-]+$/.test(orderNumber)) throw new Error('Invalid order_number');
+    const details = await this.get(`/orders/${encodeURIComponent(orderNumber)}/`, OdaOrderDetailsSchema);
+    return { ...details, summary: details.summary, order_number: orderNumber };
   }
 
   /** List product-list summaries from the live Oda saved-lists endpoint. */

@@ -112,12 +112,22 @@ describe('createOpenClawPlugin', () => {
             ],
           },
         ]),
+        getOrder: jest.fn().mockResolvedValue({
+          order_number: 'testabc', summary: {},
+          items: { product_count: 1, item_groups: [{ name: 'Items', items: [
+            { product_id: 42, description: 'Oat Milk 1L', quantity: 2, gross_amount: '59.80' },
+          ] }] },
+        }),
+        getProduct: jest.fn().mockResolvedValue({ id: 42, full_name: 'Oat Milk 1L', brand: 'Oatly' }),
         getOrders: jest.fn().mockResolvedValue({
+          has_more: false,
           count: 1,
           next: null,
           previous: null,
           results: [
             {
+              order_number: 'testabc',
+              gross_amount: '59.80',
               id: 100,
               status: 'delivered',
               delivery_date: '2024-01-01',

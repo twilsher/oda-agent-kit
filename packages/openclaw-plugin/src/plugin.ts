@@ -418,19 +418,21 @@ export function createOpenClawPlugin(client: OdaClient): OpenClawPlugin {
 
       for (const order of orderPage.results) {
         currency = order.currency;
-        totalSpendCents += Math.round(parseFloat(order.total_price) * 100);
+        totalSpendCents += Math.round(parseFloat(order.gross_amount) * 100);
 
-        for (const item of order.items) {
-          const existing = productCounts.get(item.product.id);
+        const detail = await client.getOrder(order.order_number);
+        for (const item of detail.items.item_groups.flatMap((group) => group.items)) {
+          const existing = productCounts.get(item.product_id);
           if (existing) {
             existing.count += item.quantity;
           } else {
-            productCounts.set(item.product.id, { product: item.product, count: item.quantity });
+            const product = await client.getProduct(item.product_id);
+            productCounts.set(item.product_id, { product, count: item.quantity });
           }
         }
       }
 
-      if (!orderPage.next) break;
+      if (!orderPage.has_more) break;
     }
 
     const sorted = [...productCounts.values()]

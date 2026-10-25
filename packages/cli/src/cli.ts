@@ -181,9 +181,9 @@ orders
     if (opts.json) {
       printJson(orders);
     } else {
-      console.log(`Showing page ${page} of ${Math.ceil(orders.count / 20)} (${orders.count} total)`);
+      console.log(`Showing batch ${page} (${orders.results.length} orders; more: ${orders.has_more})`);
       for (const o of orders.results) {
-        console.log(`  [${o.id}] ${o.delivery_date} — ${o.total_price} ${o.currency} (${o.status})`);
+        console.log(`  [${o.order_number}] ${o.delivery.delivery_time ?? ''} — ${o.gross_amount} ${o.currency} (${o.status.title})`);
       }
     }
   });

@@ -112,6 +112,35 @@ export interface OdaOrder {
   items: OdaOrderItem[];
 }
 
+/** A history entry; delivery_time is display text, not an ISO date. */
+export interface OdaOrderSummary {
+  order_number: string;
+  status: { title: string; payment_status?: unknown };
+  delivery: { delivery_time?: string | null; status_text?: string | null };
+  gross_amount: string;
+  currency: string;
+  last_changed_time?: string | null;
+}
+
+/** A flattened history batch. Oda does not supply a total count. */
+export interface OdaOrderHistory {
+  results: OdaOrderSummary[];
+  has_more: boolean;
+  get_more_url: string | null;
+}
+
+export interface OdaOrderDetails {
+  order_number: string;
+  summary: unknown;
+  items: {
+    product_count: number;
+    item_groups: Array<{
+      name: string;
+      items: Array<{ product_id: number; description: string; quantity: number; gross_amount: string }>;
+    }>;
+  };
+}
+
 /** A saved shopping list item. */
 export interface OdaShoppingListItem {
   product: OdaProduct;

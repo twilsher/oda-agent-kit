@@ -112,6 +112,43 @@ export const OdaOrderSchema: z.ZodType<OdaOrder> = z.object({
   items: z.array(OdaOrderItemSchema),
 });
 
+const OdaOrderSummarySchema = z.object({
+  order_number: z.string().min(1),
+  status: z.object({ title: z.string(), payment_status: z.unknown().optional() }).passthrough(),
+  delivery: z.object({
+    delivery_time: z.string().nullish(),
+    status_text: z.string().nullish(),
+  }).passthrough(),
+  gross_amount: z.string(),
+  currency: z.string(),
+  last_changed_time: z.string().nullish(),
+});
+
+export const OdaOrderHistorySchema = z.object({
+  get_more_url: z.string().nullable(),
+  has_more: z.boolean(),
+  results: z.array(z.object({ orders: z.array(OdaOrderSummarySchema) })),
+}).transform((history) => ({
+  ...history,
+  results: history.results.flatMap((group) => group.orders),
+}));
+
+export const OdaOrderDetailsSchema = z.object({
+  summary: z.unknown(),
+  items: z.object({
+    product_count: z.number().int().nonnegative(),
+    item_groups: z.array(z.object({
+      name: z.string(),
+      items: z.array(z.object({
+        product_id: z.number().int(),
+        description: z.string(),
+        quantity: z.number(),
+        gross_amount: z.string(),
+      }).passthrough()),
+    })),
+  }),
+});
+
 /** Zod schema for shopping list items. */
 export const OdaShoppingListItemSchema: z.ZodType<OdaShoppingListItem> = z.object({
   product: OdaProductSchema,

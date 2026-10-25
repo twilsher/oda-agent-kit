@@ -1,5 +1,18 @@
 # Oda Agent Kit Status
 
+## Current Priority: October MCP Bugs
+
+1. Implemented orders fix using the meal-planning window's verified 2026-10-25 response shapes: flattened month groups, date-cursor pagination, and string `order_number` detail lookups. Synthetic fixtures and full workspace tests/build/lint pass (existing version.ts warnings only). Live requests have not been repeated from this window.
+2. Standardize the full MCP parameter surface on snake_case, including `product_id` and `order_id`; update tool contracts and protocol tests. Compatibility aliases are optional; the user accepts a clean break.
+3. Add a visible top-level warning when `oda_add_to_cart` returns an unavailable product, preserving the ability to add it anyway. Include Oda's availability reason when present.
+4. Commit and push each fix separately to `origin` (`twilsher/oda-agent-kit`), in the order above. Keep Oda business logic in core and adapters thin.
+
+The source report is `BUG-MCP-PARAM-INCONSISTENCY.md`. Checkout, payment, and final order placement remain out of scope.
+
+## Upstream Integration
+
+Merged upstream into our fork in `5625537`, adopting package version `0.6.12`, OpenClaw maintenance, and global-fetch support while retaining our mixed-search, cart, and delivery-slot fixes. Push to `origin`; do not push to `upstream`. Runtime behavior after that merge has not been revalidated during the October handoff.
+
 ## 2026-05-25
 - Implemented MCP cart/delivery mutation gaps: `oda_remove_from_cart`, `oda_set_delivery_slot`, and `oda_add_to_cart` with `quantity: 0` as remove-by-product alias.
 - Removal uses Oda's cart quantity update primitive: `POST /api/v1/cart/items/?group_by=recipes` with `quantity: 0`; cart-line removal resolves `cart.items[].id` to product ID first.

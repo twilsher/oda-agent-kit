@@ -1,0 +1,20 @@
+{
+  "get_more_url": "/api/v1/orders/?through-date=2026-09-30",
+  "has_more": true,
+  "results": [
+    {
+      "name": "Oktober", "type": "month", "gross_amount": "159.80", "currency": "NOK",
+      "orders": [
+        {
+          "order_number": "testabc", "status": {"title": "Levert", "payment_status": "paid"},
+          "delivery": {"delivery_time": "i dag, 20:44", "status_text": "Levert"},
+          "gross_amount": "159.80", "currency": "NOK", "last_changed_time": "2026-10-25T20:44:00+01:00"
+        }
+      ]
+    },
+    {
+      "name": "September", "type": "month", "gross_amount": "50.00", "currency": "NOK",
+      "orders": [{"order_number": "testdef", "status": {"title": "Levert"}, "delivery": {}, "gross_amount": "50.00", "currency": "NOK"}]
+    }
+  ]
+}

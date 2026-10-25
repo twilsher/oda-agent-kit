@@ -16,7 +16,7 @@
  * these primitives without performing any writes.
  */
 
-import type { OdaClient, OdaSearchResponse, OdaCart, OdaPage, OdaOrder, OdaDeliverySlot } from '@oda-agent/core';
+import type { OdaClient, OdaSearchResponse, OdaCart, OdaOrderHistory, OdaDeliverySlot } from '@oda-agent/core';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -115,7 +115,7 @@ export async function getCart(client: OdaClient): Promise<OdaCart> {
 export async function getOrders(
   client: OdaClient,
   params: GetOrdersParams = {},
-): Promise<OdaPage<OdaOrder>> {
+): Promise<OdaOrderHistory> {
   return client.getOrders(params.page ?? 1);
 }
 

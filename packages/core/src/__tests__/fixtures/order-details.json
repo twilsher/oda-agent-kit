@@ -1,0 +1,8 @@
+{
+  "summary": {"gross_amount": "159.80", "currency": "NOK"},
+  "items": {
+    "product_count": 1,
+    "item_groups": [{"name": "Varer", "items": [{"product_id": 123, "description": "Test milk", "quantity": 2, "gross_amount": "59.80", "discount": null}]}]
+  },
+  "recipes": [], "dinner_lists": []
+}

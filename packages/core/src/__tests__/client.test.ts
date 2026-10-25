@@ -5,6 +5,8 @@ import productListDetailFixture from './fixtures/product-list-detail.json';
 import productListsPageFixture from './fixtures/product-lists-page.json';
 import searchMixedResponseFixture from './fixtures/search-mixed-response.json';
 import slotPickerSlotsFixture from './fixtures/slot-picker-slots.json';
+import ordersGroupedFixture from './fixtures/orders-grouped.json';
+import orderDetailsFixture from './fixtures/order-details.json';
 
 function createJsonResponse(body: unknown, status = 200, cookies: Record<string, string> = {}): OdaHttpResponse {
   return {
@@ -16,6 +18,36 @@ function createJsonResponse(body: unknown, status = 200, cookies: Record<string,
 }
 
 describe('OdaClient', () => {
+  it('flattens month groups and follows date cursors for numbered batches', async () => {
+    const request = jest.fn(async ({ path }: { path: string }) => createJsonResponse(
+      path === '/orders/' ? ordersGroupedFixture : { results: [], has_more: false, get_more_url: null },
+    ));
+    const client = new OdaClient({ httpClient: { request } });
+    const first = await client.getOrders();
+    expect(first.results.map((order) => order.order_number)).toEqual(['testabc', 'testdef']);
+    expect(first.results[0]?.status.title).toBe('Levert');
+    expect(first.has_more).toBe(true);
+    expect(await client.getOrders(2)).toEqual({ results: [], has_more: false, get_more_url: null });
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ path: '/orders/?through-date=2026-09-30' }));
+  });
+
+  it('fetches string order numbers and preserves detail line fields', async () => {
+    const request = jest.fn(async () => createJsonResponse(orderDetailsFixture));
+    const client = new OdaClient({ httpClient: { request } });
+    const details = await client.getOrder('testabc');
+    expect(details.order_number).toBe('testabc');
+    expect(details.items.item_groups[0]?.items[0]).toMatchObject({ product_id: 123, quantity: 2, discount: null });
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ path: '/orders/testabc/' }));
+    await expect(client.getOrder('../cart')).rejects.toThrow('Invalid order_number');
+  });
+
+  it('rejects invalid history groups rather than silently dropping orders', async () => {
+    const client = new OdaClient({ httpClient: { request: jest.fn(async () => createJsonResponse({
+      ...ordersGroupedFixture, results: [{ orders: [{ order_number: 'missing-fields' }] }],
+    })) } });
+    await expect(client.getOrders()).rejects.toThrow('Invalid Oda API response');
+  });
+
   it('does not make network calls in the constructor', () => {
     const httpClient: OdaHttpClient = {
       request: jest.fn(),

@@ -213,6 +213,20 @@ async function connectTestClient(client: Parameters<typeof createOdaMcpServer>[0
 }
 
 describe('createOdaMcpServer', () => {
+  it('accepts default and explicit order batches, cursors, and string order numbers', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+    try {
+      await mcpClient.callTool({ name: 'oda_get_orders', arguments: {} });
+      expect(odaClient.getOrders).toHaveBeenLastCalledWith(1, undefined);
+      await mcpClient.callTool({ name: 'oda_get_orders', arguments: { page: 1, through_date: '2026-09-30' } });
+      expect(odaClient.getOrders).toHaveBeenLastCalledWith(1, '2026-09-30');
+      await mcpClient.callTool({ name: 'oda_get_order_details', arguments: { order_number: 'testabc' } });
+      expect(odaClient.getOrder).toHaveBeenCalledWith('testabc');
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
   it('registers the expected Oda tools with correct safety annotations', async () => {
     const odaClient = createMockOdaClient();
     const { server, mcpClient } = await connectTestClient(odaClient);
