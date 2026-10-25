@@ -119,7 +119,7 @@ const OdaOrderSummarySchema = z.object({
     delivery_time: z.string().nullish(),
     status_text: z.string().nullish(),
   }).passthrough(),
-  gross_amount: z.string(),
+  gross_amount: z.number(),
   currency: z.string(),
   last_changed_time: z.string().nullish(),
 });
@@ -143,7 +143,7 @@ export const OdaOrderDetailsSchema = z.object({
         product_id: z.number().int(),
         description: z.string(),
         quantity: z.number(),
-        gross_amount: z.string(),
+        gross_amount: z.number(),
       }).passthrough()),
     })),
   }),

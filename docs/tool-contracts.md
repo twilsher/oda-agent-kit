@@ -73,7 +73,7 @@ Output:
       "order_number": "testabc",
       "status": { "title": "Levert" },
       "delivery": { "delivery_time": "i dag, 20:44" },
-      "gross_amount": "159.80",
+      "gross_amount": 159.8,
       "currency": "NOK"
     }
   ]
@@ -84,6 +84,7 @@ Core flattens Oda's month groups. `{}` defaults to the first batch. Optional
 `through_date` accepts the YYYY-MM-DD cursor from `get_more_url`; numbered
 `page` requests follow cursors from the first batch. No total count is supplied.
 `delivery_time` is localized display text, not an ISO date.
+Order `gross_amount` values are JSON numbers, not decimal strings.
 
 ### `oda_get_order_details`
 
@@ -91,6 +92,8 @@ Input: `{"order_number":"testabc"}`. Uses `GET /orders/testabc/`.
 Returns `order_number`, Oda's `summary`, and
 `items.product_count` / `items.item_groups[].items[]` with `product_id`,
 `description`, `quantity`, `gross_amount`, and supplied discount fields.
+Detail-line `gross_amount` is also numeric; the upstream `summary` is retained
+without imposing string types on its price fields.
 
 ### `oda_get_cart`
 

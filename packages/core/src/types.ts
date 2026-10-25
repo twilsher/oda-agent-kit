@@ -117,7 +117,7 @@ export interface OdaOrderSummary {
   order_number: string;
   status: { title: string; payment_status?: unknown };
   delivery: { delivery_time?: string | null; status_text?: string | null };
-  gross_amount: string;
+  gross_amount: number;
   currency: string;
   last_changed_time?: string | null;
 }
@@ -136,7 +136,7 @@ export interface OdaOrderDetails {
     product_count: number;
     item_groups: Array<{
       name: string;
-      items: Array<{ product_id: number; description: string; quantity: number; gross_amount: string }>;
+      items: Array<{ product_id: number; description: string; quantity: number; gross_amount: number }>;
     }>;
   };
 }

@@ -11,6 +11,9 @@ import {
   OdaShoppingListSchema,
 } from '../schemas';
 import { OdaOrderSchema } from '../schemas';
+import { OdaOrderHistorySchema, OdaOrderDetailsSchema } from '../schemas';
+import groupedOrdersFixture from './fixtures/orders-grouped.json';
+import orderDetailsFixture from './fixtures/order-details.json';
 import cartFixture from './fixtures/cart.json';
 import cartFlatItemsFixture from './fixtures/cart-flat-items.json';
 import cartWithFeesFixture from './fixtures/cart-with-fees.json';
@@ -25,6 +28,22 @@ import slotPickerSlotsFixture from './fixtures/slot-picker-slots.json';
 import slotPickerSlotsSnakeCaseFixture from './fixtures/slot-picker-slots-snake-case.json';
 
 describe('core schemas', () => {
+  it('preserves numeric order amounts and nullable last_changed_time', () => {
+    const history = OdaOrderHistorySchema.parse(groupedOrdersFixture);
+    expect(history.results[0]?.gross_amount).toBe(159.8);
+    expect(history.results[0]?.last_changed_time).toBeNull();
+    const details = OdaOrderDetailsSchema.parse(orderDetailsFixture);
+    expect(details.items.item_groups[0]?.items[0]?.gross_amount).toBe(59.8);
+  });
+
+  it('rejects string amounts in order summaries and detail lines', () => {
+    const history = JSON.parse(JSON.stringify(groupedOrdersFixture));
+    history.results[0].orders[0].gross_amount = '159.80';
+    expect(OdaOrderHistorySchema.safeParse(history).success).toBe(false);
+    const details = JSON.parse(JSON.stringify(orderDetailsFixture));
+    details.items.item_groups[0].items[0].gross_amount = '59.80';
+    expect(OdaOrderDetailsSchema.safeParse(details).success).toBe(false);
+  });
   it('normalizes nested unavailability instead of defaulting the product to available', () => {
     const raw = OdaRawCartSchema.parse(cartFixture);
     const item = raw.groups?.[0]?.items[0];

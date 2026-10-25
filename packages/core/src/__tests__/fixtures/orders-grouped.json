@@ -3,18 +3,18 @@
   "has_more": true,
   "results": [
     {
-      "name": "Oktober", "type": "month", "gross_amount": "159.80", "currency": "NOK",
+      "name": "Oktober", "type": "month", "gross_amount": 159.8, "currency": "NOK",
       "orders": [
         {
           "order_number": "testabc", "status": {"title": "Levert", "payment_status": "paid"},
           "delivery": {"delivery_time": "i dag, 20:44", "status_text": "Levert"},
-          "gross_amount": "159.80", "currency": "NOK", "last_changed_time": "2026-10-25T20:44:00+01:00"
+          "gross_amount": 159.8, "currency": "NOK", "last_changed_time": null
         }
       ]
     },
     {
-      "name": "September", "type": "month", "gross_amount": "50.00", "currency": "NOK",
-      "orders": [{"order_number": "testdef", "status": {"title": "Levert"}, "delivery": {}, "gross_amount": "50.00", "currency": "NOK"}]
+      "name": "September", "type": "month", "gross_amount": 50, "currency": "NOK",
+      "orders": [{"order_number": "testdef", "status": {"title": "Levert"}, "delivery": {}, "gross_amount": 50, "currency": "NOK"}]
     }
   ]
 }

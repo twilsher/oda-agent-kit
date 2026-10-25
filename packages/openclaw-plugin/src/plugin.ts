@@ -418,7 +418,7 @@ export function createOpenClawPlugin(client: OdaClient): OpenClawPlugin {
 
       for (const order of orderPage.results) {
         currency = order.currency;
-        totalSpendCents += Math.round(parseFloat(order.gross_amount) * 100);
+        totalSpendCents += Math.round(order.gross_amount * 100);
 
         const detail = await client.getOrder(order.order_number);
         for (const item of detail.items.item_groups.flatMap((group) => group.items)) {

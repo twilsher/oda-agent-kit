@@ -9,6 +9,15 @@
 
 The source report is `BUG-MCP-PARAM-INCONSISTENCY.md`. Checkout, payment, and final order placement remain out of scope.
 
+Follow-up: corrected order summary and detail-line `gross_amount` to JSON numbers,
+including TypeScript types, fixtures, docs, and OpenClaw arithmetic. Regression
+tests explicitly reject string amounts. Live raw GETs confirmed the types;
+rebuilt MCP handlers replaying those privacy-redacted payloads returned 23
+flattened orders and 56 products for the requested order. Full workspace tests
+(151), build, and lint pass with the existing version.ts warnings. No raw
+authenticated payloads were written to disk or committed. Reconnect MCP to load
+the corrected build.
+
 ## Upstream Integration
 
 Merged upstream into our fork in `5625537`, adopting package version `0.6.12`, OpenClaw maintenance, and global-fetch support while retaining our mixed-search, cart, and delivery-slot fixes. Push to `origin`; do not push to `upstream`. Runtime behavior after that merge has not been revalidated during the October handoff.
