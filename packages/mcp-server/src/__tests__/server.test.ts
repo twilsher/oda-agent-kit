@@ -453,7 +453,33 @@ describe('createOdaMcpServer', () => {
       expect(odaClient.addToCart).toHaveBeenCalledWith(123, 2);
       expect(JSON.parse(getTextResult(addResult))).toEqual(expect.objectContaining({
         quantity: 2,
+        warnings: [],
       }));
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
+
+  it.each(['Utsolgt fra leverandor', null])('warns visibly about unavailable adds with reason %s', async (description) => {
+    const odaClient = createMockOdaClient();
+    const item = await odaClient.addToCart(123, 2);
+    (odaClient.addToCart as jest.Mock).mockClear().mockResolvedValue({
+      ...item,
+      product: { ...item.product, availability: { is_available: false, description } },
+    });
+    const { server, mcpClient } = await connectTestClient(odaClient);
+    try {
+      const result = await mcpClient.callTool({ name: 'oda_add_to_cart', arguments: {
+        product_id: 123, quantity: 2, confirmed: true,
+      } });
+      expect(result.isError).not.toBe(true);
+      const payload = JSON.parse(getTextResult(result));
+      expect(payload.quantity).toBe(2);
+      expect(payload.warnings).toEqual([{
+        code: 'product_unavailable', product_id: 123,
+        message: expect.stringContaining(description ?? 'is unavailable'),
+      }]);
+      expect(odaClient.addToCart).toHaveBeenCalledTimes(1);
     } finally {
       await Promise.all([mcpClient.close(), server.close()]);
     }

@@ -552,7 +552,9 @@ export function normalizeCart(raw: OdaRawCart): OdaCart {
         unit_price_quantity_abbreviation: item.product.unit_price_quantity_abbreviation,
         unit_price_quantity_name: typeof rawProduct['unit_price_quantity_name'] === 'string' ? rawProduct['unit_price_quantity_name'] : '',
         currency: typeof rawProduct['currency'] === 'string' ? rawProduct['currency'] : 'NOK',
-        is_available: typeof rawProduct['is_available'] === 'boolean' ? rawProduct['is_available'] : true,
+        is_available: typeof rawProduct['is_available'] === 'boolean'
+          ? rawProduct['is_available']
+          : (rawProduct['availability'] as OdaAvailability | undefined)?.is_available ?? true,
         is_sponsored: typeof rawProduct['is_sponsored'] === 'boolean' ? rawProduct['is_sponsored'] : false,
         promoted_product: typeof rawProduct['promoted_product'] === 'boolean' ? rawProduct['promoted_product'] : false,
         images: Array.isArray(rawProduct['images']) ? (rawProduct['images'] as OdaProductImage[]) : [],

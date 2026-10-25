@@ -273,29 +273,34 @@ Input:
 `quantity: 0` is accepted as a remove-by-product alias and uses the same Oda
 cart update endpoint as `oda_remove_from_cart`.
 
-Output (proposed — not yet committed):
+Output (the cart has already been updated):
 
 ```json
 {
-  "status": "proposed",
-  "item": {
-    "productId": "string",
-    "name": "string",
-    "quantity": 2,
-    "unitPrice": {
-      "amount": 0,
-      "currency": "NOK"
-    }
+  "id": 456,
+  "product": {
+    "id": 123,
+    "full_name": "Test milk",
+    "availability": { "is_available": false, "description": "Sold out" }
   },
-  "cartDelta": {
-    "itemsAdded": 1,
-    "newTotal": {
-      "amount": 0,
-      "currency": "NOK"
+  "quantity": 2,
+  "line_price": "59.80",
+  "original_line_price": null,
+  "unit_price": "29.90",
+  "label": null,
+  "warnings": [
+    {
+      "code": "product_unavailable",
+      "product_id": 123,
+      "message": "Test milk is unavailable: Sold out The item is in the cart, but delivery is not guaranteed."
     }
-  }
+  ]
 }
 ```
+
+Product fields are abbreviated above. Available adds return `warnings: []`.
+Unavailable products are still added; callers must surface the warnings to the
+user. The quantity-zero removal alias returns the cart as before.
 
 ### `oda_remove_from_cart`
 

@@ -1,4 +1,5 @@
 export { OdaApiError, OdaClient, OdaSchemaError } from './client.js';
+export { getCartItemWarnings } from './cartWarnings.js';
 export { buildCartPlan, compareCartToUsual, findSubstitutes } from './cartPlan.js';
 export { analyzeOrderHistory, getHouseholdStaples, normalizeOrder } from './orderHistory.js';
 export {

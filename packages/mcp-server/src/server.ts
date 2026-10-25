@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { getCartItemWarnings } from '@oda-agent/core';
 import type {
   OdaCart,
   OdaCartItem,
@@ -241,7 +242,7 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
   server.registerTool(
     'oda_add_to_cart',
     {
-      description: 'Add a product to the Oda cart after explicit user confirmation. Does not place an order.',
+      description: 'Add a product to the Oda cart after explicit user confirmation. Check top-level warnings for unavailable products; an add does not guarantee delivery. Does not place an order.',
       inputSchema: z.object({
         product_id: z.number().int().positive().describe('The Oda product ID to add'),
         quantity: z.number().int().nonnegative().describe('Quantity to set/add for this product. Use 0 to remove it.'),
@@ -255,7 +256,8 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
         return createJsonResult(await client.removeFromCart(product_id));
       }
 
-      return createJsonResult(await client.addToCart(product_id, quantity));
+      const item = await client.addToCart(product_id, quantity);
+      return createJsonResult({ ...item, warnings: getCartItemWarnings(item) });
     },
   );
 

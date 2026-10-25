@@ -25,6 +25,16 @@ import slotPickerSlotsFixture from './fixtures/slot-picker-slots.json';
 import slotPickerSlotsSnakeCaseFixture from './fixtures/slot-picker-slots-snake-case.json';
 
 describe('core schemas', () => {
+  it('normalizes nested unavailability instead of defaulting the product to available', () => {
+    const raw = OdaRawCartSchema.parse(cartFixture);
+    const item = raw.groups?.[0]?.items[0];
+    if (!item) throw new Error('Missing fixture item');
+    delete item.product['is_available'];
+    item.product['availability'] = { is_available: false, description: 'Sold out' };
+    const normalized = normalizeCart(raw).items[0];
+    expect(normalized?.product.is_available).toBe(false);
+    expect(normalized?.product.availability.description).toBe('Sold out');
+  });
   it('parses search fixtures', () => {
     const parsed = OdaSearchResponseSchema.parse(searchResponseFixture);
 
