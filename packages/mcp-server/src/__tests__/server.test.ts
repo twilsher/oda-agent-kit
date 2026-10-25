@@ -213,6 +213,22 @@ async function connectTestClient(client: Parameters<typeof createOdaMcpServer>[0
 }
 
 describe('createOdaMcpServer', () => {
+  it('routes snake_case product arguments and rejects legacy camelCase adds', async () => {
+    const odaClient = createMockOdaClient();
+    const { server, mcpClient } = await connectTestClient(odaClient);
+    try {
+      const rejected = await mcpClient.callTool({ name: 'oda_add_to_cart', arguments: {
+        productId: 123, quantity: 1, confirmed: true,
+      } });
+      expect(rejected.isError).toBe(true);
+      expect(odaClient.addToCart).not.toHaveBeenCalled();
+      const product = await mcpClient.callTool({ name: 'oda_get_product', arguments: { product_id: 123 } });
+      expect(product.isError).not.toBe(true);
+      expect(odaClient.getProduct).toHaveBeenCalledWith(123);
+    } finally {
+      await Promise.all([mcpClient.close(), server.close()]);
+    }
+  });
   it('accepts default and explicit order batches, cursors, and string order numbers', async () => {
     const odaClient = createMockOdaClient();
     const { server, mcpClient } = await connectTestClient(odaClient);
@@ -237,6 +253,12 @@ describe('createOdaMcpServer', () => {
 
       expect(tools.map((tool) => tool.name).sort()).toEqual([...ODA_TOOL_NAMES].sort());
       expect(tools).toHaveLength(ODA_TOOL_NAMES.length);
+
+      for (const tool of tools) {
+        for (const parameter of Object.keys(tool.inputSchema.properties ?? {})) {
+          expect(parameter).toMatch(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/);
+        }
+      }
 
       for (const tool of tools.filter((tool) => (READ_ONLY_TOOL_NAMES as readonly string[]).includes(tool.name))) {
         expect(tool.annotations?.readOnlyHint).toBe(true);
@@ -279,7 +301,7 @@ describe('createOdaMcpServer', () => {
       });
       const productImageResult = await mcpClient.callTool({
         name: 'oda_get_product_image',
-        arguments: { productId: 123 },
+        arguments: { product_id: 123 },
       });
 
       expect(JSON.parse(getTextResult(authResult))).toEqual({
@@ -288,7 +310,7 @@ describe('createOdaMcpServer', () => {
       });
       expect(odaClient.getProduct).toHaveBeenCalledWith(123);
       expect(JSON.parse(getTextResult(productImageResult))).toEqual({
-        productId: 123,
+        product_id: 123,
         front_url: 'https://example.com/product/123',
         images: [
           {
@@ -407,7 +429,7 @@ describe('createOdaMcpServer', () => {
     try {
       const result = await mcpClient.callTool({
         name: 'oda_add_to_cart',
-        arguments: { productId: 123, quantity: 2, confirmed: false },
+        arguments: { product_id: 123, quantity: 2, confirmed: false },
       });
 
       expect((result as { isError?: boolean }).isError).toBe(true);
@@ -425,7 +447,7 @@ describe('createOdaMcpServer', () => {
     try {
       const addResult = await mcpClient.callTool({
         name: 'oda_add_to_cart',
-        arguments: { productId: 123, quantity: 2, confirmed: true },
+        arguments: { product_id: 123, quantity: 2, confirmed: true },
       });
 
       expect(odaClient.addToCart).toHaveBeenCalledWith(123, 2);
@@ -444,7 +466,7 @@ describe('createOdaMcpServer', () => {
     try {
       const result = await mcpClient.callTool({
         name: 'oda_add_to_cart',
-        arguments: { productId: 123, quantity: 0, confirmed: true },
+        arguments: { product_id: 123, quantity: 0, confirmed: true },
       });
 
       expect(odaClient.addToCart).not.toHaveBeenCalled();

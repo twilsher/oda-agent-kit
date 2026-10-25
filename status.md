@@ -3,7 +3,7 @@
 ## Current Priority: October MCP Bugs
 
 1. Implemented orders fix using the meal-planning window's verified 2026-10-25 response shapes: flattened month groups, date-cursor pagination, and string `order_number` detail lookups. Synthetic fixtures and full workspace tests/build/lint pass (existing version.ts warnings only). Live requests have not been repeated from this window.
-2. Standardize the full MCP parameter surface on snake_case, including `product_id` and `order_id`; update tool contracts and protocol tests. Compatibility aliases are optional; the user accepts a clean break.
+2. Standardized the published MCP parameters on snake_case: product tools and add/remove use `product_id`; order details use string `order_number`. Clean break from camelCase inputs; core TypeScript method names remain unchanged. Protocol coverage checks all tool parameter names.
 3. Add a visible top-level warning when `oda_add_to_cart` returns an unavailable product, preserving the ability to add it anyway. Include Oda's availability reason when present.
 4. Commit and push each fix separately to `origin` (`twilsher/oda-agent-kit`), in the order above. Keep Oda business logic in core and adapters thin.
 

@@ -157,11 +157,11 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
     {
       description: 'Retrieve a single Oda product by product ID.',
       inputSchema: z.object({
-        productId: z.number().int().positive().describe('The Oda product ID'),
+        product_id: z.number().int().positive().describe('The Oda product ID'),
       }),
       annotations: READ_ONLY_TOOL_ANNOTATIONS,
     },
-    async ({ productId }) => createJsonResult(await client.getProduct(productId)),
+    async ({ product_id }) => createJsonResult(await client.getProduct(product_id)),
   );
 
   server.registerTool(
@@ -169,14 +169,14 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
     {
       description: 'Retrieve the image metadata for a single Oda product.',
       inputSchema: z.object({
-        productId: z.number().int().positive().describe('The Oda product ID'),
+        product_id: z.number().int().positive().describe('The Oda product ID'),
       }),
       annotations: READ_ONLY_TOOL_ANNOTATIONS,
     },
-    async ({ productId }) => {
-      const product = await client.getProduct(productId);
+    async ({ product_id }) => {
+      const product = await client.getProduct(product_id);
       return createJsonResult({
-        productId: product.id,
+        product_id: product.id,
         front_url: product.front_url,
         images: product.images,
       });
@@ -243,19 +243,19 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
     {
       description: 'Add a product to the Oda cart after explicit user confirmation. Does not place an order.',
       inputSchema: z.object({
-        productId: z.number().int().positive().describe('The Oda product ID to add'),
+        product_id: z.number().int().positive().describe('The Oda product ID to add'),
         quantity: z.number().int().nonnegative().describe('Quantity to set/add for this product. Use 0 to remove it.'),
         confirmed: z.boolean().describe('Must be true only after the user explicitly approved this cart change'),
       }),
       annotations: MUTATION_TOOL_ANNOTATIONS,
     },
-    async ({ productId, quantity, confirmed }) => {
+    async ({ product_id, quantity, confirmed }) => {
       requireConfirmed(confirmed);
       if (quantity === 0) {
-        return createJsonResult(await client.removeFromCart(productId));
+        return createJsonResult(await client.removeFromCart(product_id));
       }
 
-      return createJsonResult(await client.addToCart(productId, quantity));
+      return createJsonResult(await client.addToCart(product_id, quantity));
     },
   );
 

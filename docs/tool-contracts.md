@@ -2,6 +2,14 @@
 
 Tools are grouped by risk level (see [Safety Model](safety-model.md)).
 
+Registered MCP tools use snake_case arguments. This is a breaking change from
+the former `productId` / `orderId` inputs; reconnect MCP after updating.
+`oda_get_product`, `oda_get_product_image`, `oda_add_to_cart`, and product-based
+`oda_remove_from_cart` use `product_id`. `oda_get_order_details` uses string
+`order_number`. Product image responses also use `product_id`. Core TypeScript
+methods retain their existing names. Raw HTTP bodies/query keys remain Oda's
+wire format, including any upstream camelCase fields.
+
 ---
 
 ## Read-only tools (Level 0)
@@ -256,7 +264,7 @@ Input:
 
 ```json
 {
-  "productId": 123,
+  "product_id": 123,
   "quantity": 2,
   "confirmed": true
 }
