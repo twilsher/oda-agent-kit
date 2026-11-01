@@ -6,7 +6,7 @@ import {
   OdaOrderDetailsSchema,
   OdaProductListDetailSchema,
   OdaProductListSummaryPageSchema,
-  OdaProductSchema,
+  OdaProductDetailSchema,
   OdaRawCartSchema,
   OdaSearchResponseSchema,
 } from './schemas.js';
@@ -305,7 +305,7 @@ export class OdaClient {
 
   /** Get a single product by its ID. */
   async getProduct(productId: number): Promise<OdaProduct> {
-    return this.get(`/products/${productId}/`, OdaProductSchema);
+    return this.get(`/products/${productId}/`, OdaProductDetailSchema);
   }
 
   /** Retrieve the current cart. */

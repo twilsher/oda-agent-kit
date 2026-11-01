@@ -156,7 +156,7 @@ export function createOdaMcpServer(client: OdaMcpClient, options: OdaMcpServerOp
   server.registerTool(
     'oda_get_product',
     {
-      description: 'Retrieve a single Oda product by product ID.',
+      description: 'Retrieve a single Oda product by product ID, including supplier ingredients, allergens, trace warnings, and nutrition in detailed_info.local[].contents_table and nutrition_info_table. Missing allergen text is not a gluten-free guarantee.',
       inputSchema: z.object({
         product_id: z.number().int().positive().describe('The Oda product ID'),
       }),

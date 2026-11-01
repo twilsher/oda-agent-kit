@@ -1,0 +1,39 @@
+{
+  "id": 68328,
+  "full_name": "Test vegetable stock",
+  "brand": null,
+  "name": "Vegetable stock",
+  "absolute_url": "/no/products/68328-test-stock/",
+  "front_url": "https://oda.com/no/products/68328-test-stock/",
+  "gross_price": "49.90",
+  "gross_unit_price": "7.68",
+  "unit_price_quantity_abbreviation": "l",
+  "unit_price_quantity_name": "liter",
+  "currency": "NOK",
+  "availability": { "is_available": false, "description": "Sold out", "code": "sold_out_supplier" },
+  "metadata": { "is_sponsor_labeled": null, "is_promoted": null },
+  "discount": null,
+  "images": [{ "thumbnail": { "url": "https://images.oda.com/test-thumb.jpg" }, "large": { "url": "https://images.oda.com/test-large.jpg" }, "variant": "main" }],
+  "detailed_info": {
+    "country": "NO",
+    "local": [
+      {
+        "language": "nb",
+        "language_name": "Norwegian",
+        "description_from_supplier": "Synthetic supplier text",
+        "nutrition_info_table": { "title": "Nutrition", "rows": [{ "key": "Salt", "value": "1 g" }], "disclaimers": null },
+        "contents_table": {
+          "title": null,
+          "rows": [
+            { "key": "Ingredienser", "value": "Vegetables (CELERY), salt.", "emphasis": { "keywords": ["CELERY"], "emphasis_type": "bold", "reason": "allergens" }, "key_id": null },
+            { "key": "Allergener", "value": "Celery." },
+            { "key": "Kan inneholde spor av ", "value": "gluten, egg, milk." }
+          ],
+          "disclaimers": ["Information supplied by test supplier."]
+        },
+        "hazards": null
+      },
+      { "language": "en", "contents_table": { "rows": [{ "key": "Ingredients", "value": "Vegetables (CELERY), salt." }] }, "nutrition_info_table": null }
+    ]
+  }
+}

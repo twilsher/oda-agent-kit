@@ -10,6 +10,8 @@ import type {
   OdaOrderItem,
   OdaPage,
   OdaProduct,
+  OdaProductDetailedInfo,
+  OdaProductInformationTable,
   OdaProductImage,
   OdaProductImageAsset,
   OdaSearchResponse,
@@ -43,6 +45,18 @@ export const OdaAvailabilitySchema: z.ZodType<OdaAvailability> = z.object({
 });
 
 /** Zod schema for products. */
+const OdaProductInformationTableSchema: z.ZodType<OdaProductInformationTable> = z.object({
+  rows: z.array(z.object({ key: z.string(), value: z.string().nullable() }).passthrough()),
+}).passthrough();
+
+const OdaProductDetailedInfoSchema: z.ZodType<OdaProductDetailedInfo> = z.object({
+  local: z.array(z.object({
+    language: z.string(),
+    contents_table: OdaProductInformationTableSchema.nullish(),
+    nutrition_info_table: OdaProductInformationTableSchema.nullish(),
+  }).passthrough()),
+}).passthrough();
+
 export const OdaProductSchema: z.ZodType<OdaProduct> = z.object({
   id: z.number().int(),
   full_name: z.string(),
@@ -60,6 +74,7 @@ export const OdaProductSchema: z.ZodType<OdaProduct> = z.object({
   images: z.array(OdaProductImageSchema),
   discount: OdaDiscountSchema.nullable(),
   availability: OdaAvailabilitySchema,
+  detailed_info: OdaProductDetailedInfoSchema.nullish(),
 });
 
 /** Zod schema for cart items. */
@@ -194,6 +209,7 @@ const OdaCatalogProductSchema = z.object({
   availability: OdaCatalogAvailabilitySchema,
   images: z.array(OdaCatalogImageSchema),
   metadata: OdaCatalogProductMetadataSchema,
+  detailed_info: OdaProductDetailedInfoSchema.nullish(),
 }).passthrough().transform((product): OdaProduct => {
   const firstImage = product.images[0];
   const thumbnail = firstImage?.thumbnail ?? firstImage?.small_thumbnail ?? firstImage?.large ?? firstImage?.large_thumbnail ?? { url: '' };
@@ -225,8 +241,15 @@ const OdaCatalogProductSchema = z.object({
       is_available: product.availability.is_available,
       description: product.availability.description ?? null,
     },
+    ...(product.detailed_info !== undefined ? { detailed_info: product.detailed_info } : {}),
   };
 });
+
+/** Accept current catalog-style details as well as legacy normalized products. */
+export const OdaProductDetailSchema: z.ZodType<OdaProduct, z.ZodTypeDef, unknown> = z.union([
+  OdaProductSchema,
+  OdaCatalogProductSchema,
+]);
 
 /**
  * Product schema for the product-lists REST endpoint.

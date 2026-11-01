@@ -1,5 +1,12 @@
 # Oda Agent Kit Status
 
+## Product Details Fix - 2026-11-01
+
+1. Fixed `oda_get_product` rejecting current `/products/{id}/` payloads by accepting catalog-style detail responses alongside legacy products.
+2. Preserved `detailed_info.local[]`, including ingredients, allergens, trace warnings, nutrition, supplier disclaimers, and row emphasis. Missing data is not converted into gluten-free claims.
+3. Verified live with the rebuilt client for IDs 31901, 68328, 18160, and 10993; all parse and retain ingredient rows. Product 68328 retains both allergen and trace-warning rows. Public read-only requests were used because this session's MCP transport was closed.
+4. All 154 tests and workspace builds pass; lint has only existing version.ts warnings. Reconnect MCP to load the rebuilt server.
+
 ## Current Priority: October MCP Bugs
 
 1. Implemented orders fix using the meal-planning window's verified 2026-10-25 response shapes: flattened month groups, date-cursor pagination, and string `order_number` detail lookups. Synthetic fixtures and full workspace tests/build/lint pass (existing version.ts warnings only). Live requests have not been repeated from this window.

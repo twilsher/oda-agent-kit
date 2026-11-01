@@ -7,6 +7,7 @@ import searchMixedResponseFixture from './fixtures/search-mixed-response.json';
 import slotPickerSlotsFixture from './fixtures/slot-picker-slots.json';
 import ordersGroupedFixture from './fixtures/orders-grouped.json';
 import orderDetailsFixture from './fixtures/order-details.json';
+import productDetailFixture from './fixtures/product-detail.json';
 
 function createJsonResponse(body: unknown, status = 200, cookies: Record<string, string> = {}): OdaHttpResponse {
   return {
@@ -18,6 +19,15 @@ function createJsonResponse(body: unknown, status = 200, cookies: Record<string,
 }
 
 describe('OdaClient', () => {
+  it('normalizes product details without losing ingredients, allergens, or trace warnings', async () => {
+    const request = jest.fn(async () => createJsonResponse(productDetailFixture));
+    const client = new OdaClient({ httpClient: { request } });
+    const product = await client.getProduct(68328);
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ path: '/products/68328/' }));
+    expect(product.is_available).toBe(false);
+    expect(product.images[0]?.large_thumbnail.url).toBe('https://images.oda.com/test-large.jpg');
+    expect(product.detailed_info).toEqual(productDetailFixture.detailed_info);
+  });
   it('flattens month groups and follows date cursors for numbered batches', async () => {
     const request = jest.fn(async ({ path }: { path: string }) => createJsonResponse(
       path === '/orders/' ? ordersGroupedFixture : { results: [], has_more: false, get_more_url: null },

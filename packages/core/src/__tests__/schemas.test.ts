@@ -14,6 +14,8 @@ import { OdaOrderSchema } from '../schemas';
 import { OdaOrderHistorySchema, OdaOrderDetailsSchema } from '../schemas';
 import groupedOrdersFixture from './fixtures/orders-grouped.json';
 import orderDetailsFixture from './fixtures/order-details.json';
+import productDetailFixture from './fixtures/product-detail.json';
+import { OdaProductDetailSchema } from '../schemas';
 import cartFixture from './fixtures/cart.json';
 import cartFlatItemsFixture from './fixtures/cart-flat-items.json';
 import cartWithFeesFixture from './fixtures/cart-with-fees.json';
@@ -28,6 +30,23 @@ import slotPickerSlotsFixture from './fixtures/slot-picker-slots.json';
 import slotPickerSlotsSnakeCaseFixture from './fixtures/slot-picker-slots-snake-case.json';
 
 describe('core schemas', () => {
+  it('accepts legacy details and current catalog details with supplier tables intact', () => {
+    const parsed = OdaProductDetailSchema.parse(productDetailFixture);
+    expect(parsed.detailed_info).toEqual(productDetailFixture.detailed_info);
+    expect(parsed.detailed_info?.local[0]?.contents_table?.rows[2]?.value).toBe('gluten, egg, milk.');
+    expect(parsed.detailed_info?.local[0]?.contents_table?.rows[0]?.emphasis).toEqual(
+      { keywords: ['CELERY'], emphasis_type: 'bold', reason: 'allergens' },
+    );
+    expect(OdaProductDetailSchema.parse(searchResponseFixture.results[0]).id).toBe(123);
+  });
+
+  it('preserves missing/null supplier information without inventing allergen claims', () => {
+    const { detailed_info: omitted, ...withoutDetails } = productDetailFixture;
+    expect(omitted).toBeDefined();
+    expect(OdaProductDetailSchema.parse(withoutDetails).detailed_info).toBeUndefined();
+    expect(OdaProductDetailSchema.parse({ ...withoutDetails, detailed_info: null }).detailed_info).toBeNull();
+    expect(OdaProductDetailSchema.safeParse({ ...productDetailFixture, detailed_info: { local: [{ language: 'nb', contents_table: { rows: [{}] } }] } }).success).toBe(false);
+  });
   it('preserves numeric order amounts and nullable last_changed_time', () => {
     const history = OdaOrderHistorySchema.parse(groupedOrdersFixture);
     expect(history.results[0]?.gross_amount).toBe(159.8);

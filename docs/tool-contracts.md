@@ -52,6 +52,18 @@ Output:
 }
 ```
 
+### `oda_get_product`
+
+Input: `{"product_id":68328}`. Uses `GET /products/68328/` and accepts current
+catalog-style details and legacy normalized products. Catalog availability and
+image variants are normalized to the existing product interface.
+
+Supplier data is retained in `detailed_info.local[]` for every language.
+`contents_table.rows[]` holds ingredient, allergen, and trace-warning text;
+`nutrition_info_table` holds nutrition data. Row keys/values, allergen emphasis,
+disclaimers, and other supplier metadata are preserved. Absent or null details
+remain absent or null; lack of an allergen row is not a gluten-free claim.
+
 ### `oda_get_orders`
 
 Input:

@@ -23,6 +23,22 @@ export interface OdaAvailability {
   description: string | null;
 }
 
+/** Supplier information table; preserves upstream row annotations. */
+export interface OdaProductInformationTable {
+  rows: Array<{ key: string; value: string | null; [key: string]: unknown }>;
+  [key: string]: unknown;
+}
+
+export interface OdaProductDetailedInfo {
+  local: Array<{
+    language: string;
+    contents_table?: OdaProductInformationTable | null;
+    nutrition_info_table?: OdaProductInformationTable | null;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+
 /** Oda product as returned by the search and product detail endpoints. */
 export interface OdaProduct {
   id: number;
@@ -41,6 +57,8 @@ export interface OdaProduct {
   images: OdaProductImage[];
   discount: OdaDiscount | null;
   availability: OdaAvailability;
+  /** Supplier text, including ingredients, allergens, and trace warnings. */
+  detailed_info?: OdaProductDetailedInfo | null;
 }
 
 /** A single item in the shopping cart. */
